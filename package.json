@@ -2,9 +2,9 @@
     "name": "fullstack-app",
     "private": true,
     "scripts": {
-      "install-client": "cd client && npm install",
+      "install-client": "cd client/vite-project && npm install",
       "install-server": "cd server && npm install",
-      "build-client": "cd client && npm run build",
+      "build-client": "cd client/vite-project && npm run build",
       "start": "cd server && npm start"
     }
   }

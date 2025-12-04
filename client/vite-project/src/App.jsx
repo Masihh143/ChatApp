@@ -3,7 +3,12 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import './App.css';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
+// In dev, you can set VITE_API_BASE (e.g. http://localhost:5000).
+// In production (Render single service), use same-origin by default.
+const API_BASE =
+  import.meta.env.MODE === 'development'
+    ? import.meta.env.VITE_API_BASE || 'http://localhost:5000'
+    : '';
 
 function App() {
   const [token, setToken] = useState(null);
@@ -24,7 +29,7 @@ function App() {
 
   const socket = useMemo(() => {
     if (!token) return null;
-    return io(API_BASE, {
+    return io(API_BASE || undefined, {
       auth: { token },
       transports: ['websocket']
     });

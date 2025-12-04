@@ -123,7 +123,7 @@ function App() {
     if (messageText) formData.append('text', messageText);
     if (file) formData.append('media', file);
 
-    const res = await authClient.post(
+    await authClient.post(
       `/messages/${activeConversation._id}`,
       formData,
       {
@@ -131,7 +131,7 @@ function App() {
       }
     );
 
-    setMessages((prev) => [...prev, res.data]);
+    // Do not append here; rely on Socket.IO 'message:new' event
     setMessageText('');
     setFile(null);
   };

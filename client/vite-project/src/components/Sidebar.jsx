@@ -1,25 +1,32 @@
 import { useState, useMemo } from 'react';
 
-/* ── Avatar helper ── */
-function Avatar({ name, size = 40 }) {
-    const colors = [
-        '#00a884', '#53bdeb', '#ff6b6b', '#d4a574',
-        '#7c8db5', '#bf59cf', '#e8a838', '#25d366',
+/* ── Doodle Avatar ── */
+function DoodleAvatar({ name, size = 42 }) {
+    const palettes = [
+        { bg: 'var(--dd-lavender-soft)', border: 'var(--dd-lavender)', color: 'var(--dd-primary)' },
+        { bg: 'var(--dd-coral-soft)', border: 'var(--dd-coral)', color: '#c0574a' },
+        { bg: 'var(--dd-sage-soft)', border: 'var(--dd-sage)', color: '#5a8555' },
+        { bg: 'var(--dd-sky-soft)', border: 'var(--dd-sky)', color: '#4a7fa0' },
+        { bg: 'var(--dd-honey-soft)', border: 'var(--dd-honey)', color: '#a08040' },
+        { bg: 'var(--dd-rose-soft)', border: 'var(--dd-rose)', color: '#b06a7a' },
     ];
-    const idx = name ? name.charCodeAt(0) % colors.length : 0;
+    const idx = name ? name.charCodeAt(0) % palettes.length : 0;
+    const p = palettes[idx];
     const initials = name
         ? name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
         : '?';
 
     return (
         <div
-            className="flex-shrink-0 rounded-full flex items-center justify-center font-medium"
+            className="flex-shrink-0 rounded-full flex items-center justify-center font-bold doodle-avatar"
             style={{
                 width: size,
                 height: size,
-                backgroundColor: colors[idx],
-                color: '#fff',
-                fontSize: size * 0.38,
+                backgroundColor: p.bg,
+                borderColor: p.border,
+                color: p.color,
+                fontSize: size * 0.36,
+                fontFamily: 'var(--font-hand)',
             }}
         >
             {initials}
@@ -38,7 +45,6 @@ export default function Sidebar({
 }) {
     const [search, setSearch] = useState('');
 
-    /* Filter conversations & users by search query */
     const filteredConversations = useMemo(() => {
         if (!search.trim()) return conversations;
         const q = search.toLowerCase();
@@ -57,63 +63,58 @@ export default function Sidebar({
     }, [allUsers, search]);
 
     return (
-        <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--wa-panel)' }}>
+        <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--dd-sidebar)' }}>
+
             {/* ─── Header ─── */}
-            <div
-                className="flex items-center justify-between px-4 py-2.5 flex-shrink-0"
-                style={{
-                    backgroundColor: 'var(--wa-header)',
-                    borderRight: '1px solid var(--wa-border)',
-                }}
-            >
+            <div className="relative flex items-center justify-between px-4 py-3 flex-shrink-0 scallop-border"
+                style={{ backgroundColor: 'var(--dd-card)', borderBottom: '1px dashed var(--dd-border)' }}>
                 <div className="flex items-center gap-3">
-                    <Avatar name={user?.name} size={36} />
-                    <span className="text-sm font-medium" style={{ color: 'var(--wa-text-primary)' }}>
-                        {user?.name}
-                    </span>
+                    <DoodleAvatar name={user?.name} size={36} />
+                    <div>
+                        <div className="text-sm font-bold" style={{ color: 'var(--dd-text)', fontFamily: 'var(--font-hand)', fontSize: '18px' }}>
+                            {user?.name}
+                        </div>
+                        <div className="text-[11px]" style={{ color: 'var(--dd-text-muted)', fontFamily: 'var(--font-sketch)' }}>
+                            ✨ online & cozy
+                        </div>
+                    </div>
                 </div>
                 <button
                     onClick={onLogout}
-                    className="p-1.5 rounded-full transition-colors cursor-pointer"
-                    style={{ color: 'var(--wa-text-secondary)' }}
-                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = 'var(--wa-hover)')}
-                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                    title="Logout"
+                    className="p-2 rounded-full transition-all duration-200 cursor-pointer wiggle"
+                    style={{ color: 'var(--dd-text-secondary)', background: 'var(--dd-paper)' }}
+                    onMouseOver={(e) => {
+                        e.currentTarget.style.color = 'var(--dd-danger)';
+                        e.currentTarget.style.background = 'var(--dd-coral-soft)';
+                    }}
+                    onMouseOut={(e) => {
+                        e.currentTarget.style.color = 'var(--dd-text-secondary)';
+                        e.currentTarget.style.background = 'var(--dd-paper)';
+                    }}
+                    title="Sign out"
                 >
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
                         <path d="M16 17v-3H9v-4h7V7l5 5-5 5M14 2a2 2 0 012 2v2h-2V4H5v16h9v-2h2v2a2 2 0 01-2 2H5a2 2 0 01-2-2V4a2 2 0 012-2h9z" />
                     </svg>
                 </button>
             </div>
 
-            {/* ─── Search Bar ─── */}
-            <div className="px-2 py-1.5 flex-shrink-0" style={{ backgroundColor: 'var(--wa-panel)' }}>
-                <div
-                    className="flex items-center gap-3 rounded-lg px-3 py-1.5"
-                    style={{ backgroundColor: 'var(--wa-input)' }}
-                >
-                    <svg
-                        viewBox="0 0 24 24" width="16" height="16"
-                        style={{ fill: 'var(--wa-text-muted)', flexShrink: 0 }}
-                    >
-                        <path d="M15.009 13.805h-.636l-.22-.219a5.184 5.184 0 001.256-3.386 5.207 5.207 0 10-5.207 5.208 5.183 5.183 0 003.385-1.255l.221.22v.635l4.004 3.999 1.194-1.195-3.997-4.007zm-4.808 0a3.6 3.6 0 110-7.202 3.6 3.6 0 010 7.202z" />
-                    </svg>
+            {/* ─── Search ─── */}
+            <div className="px-3 py-2 flex-shrink-0" style={{ background: 'var(--dd-sidebar)' }}>
+                <div className="flex items-center gap-2">
                     <input
                         type="text"
-                        placeholder="Search or start new chat"
+                        placeholder="🔍  Search friends..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="flex-1 bg-transparent text-[13px] placeholder-opacity-70"
-                        style={{
-                            color: 'var(--wa-text-primary)',
-                            '--tw-placeholder-opacity': 1,
-                        }}
+                        className="w-full px-4 py-2 text-[13px] doodle-input"
+                        style={{ color: 'var(--dd-text)', fontFamily: 'var(--font-sketch)' }}
                     />
                 </div>
             </div>
 
-            {/* ─── Chat / User Lists ─── */}
-            <div className="flex-1 overflow-y-auto">
+            {/* ─── Lists ─── */}
+            <div className="flex-1 overflow-y-auto px-1 py-1">
                 {/* Conversations */}
                 {filteredConversations.map((c) => {
                     const other = c.participants.find((p) => p._id !== user.id) || c.participants[0];
@@ -122,30 +123,23 @@ export default function Sidebar({
                     return (
                         <div
                             key={c._id}
-                            className="conversation-item flex items-center gap-3 px-3 py-2.5 cursor-pointer"
-                            style={{
-                                backgroundColor: isActive ? 'var(--wa-active)' : 'transparent',
-                                borderBottom: '1px solid var(--wa-border)',
-                            }}
+                            className={`convo-item flex items-center gap-3 px-3 py-3 cursor-pointer ${isActive ? 'active' : ''}`}
                             onClick={() => onOpenConversation(c)}
                         >
-                            <Avatar name={other?.name} size={44} />
+                            <DoodleAvatar name={other?.name} size={44} />
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[15px] font-normal truncate"
-                                        style={{ color: 'var(--wa-text-primary)' }}>
+                                    <span className="text-[14px] font-semibold truncate"
+                                        style={{ color: isActive ? 'var(--dd-primary)' : 'var(--dd-text)' }}>
                                         {other?.name}
                                     </span>
                                     <span className="text-[11px] flex-shrink-0 ml-2"
-                                        style={{ color: 'var(--wa-text-muted)' }}>
-                                        {c.updatedAt && new Date(c.updatedAt).toLocaleDateString([], {
-                                            month: 'short',
-                                            day: 'numeric',
-                                        })}
+                                        style={{ color: 'var(--dd-text-muted)', fontFamily: 'var(--font-sketch)' }}>
+                                        {c.updatedAt && new Date(c.updatedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                                     </span>
                                 </div>
-                                <div className="text-[13px] truncate mt-0.5"
-                                    style={{ color: 'var(--wa-text-muted)' }}>
+                                <div className="text-[12px] truncate mt-0.5"
+                                    style={{ color: 'var(--dd-text-muted)' }}>
                                     {other?.email}
                                 </div>
                             </div>
@@ -153,43 +147,39 @@ export default function Sidebar({
                     );
                 })}
 
-                {/* Users section header */}
+                {/* Users section */}
                 {filteredUsers.length > 0 && (
-                    <div className="px-4 py-2 text-xs font-medium uppercase tracking-wider"
+                    <div className="px-4 py-2 mt-2 text-[12px] font-bold"
                         style={{
-                            color: 'var(--wa-green)',
-                            backgroundColor: 'var(--wa-deeper)',
-                            borderBottom: '1px solid var(--wa-border)',
+                            fontFamily: 'var(--font-hand)',
+                            color: 'var(--dd-primary)',
+                            fontSize: '16px',
                         }}>
-                        All Users
+                        ✦ People
                     </div>
                 )}
                 {filteredUsers.map((u) => (
                     <div
                         key={u._id}
-                        className="conversation-item flex items-center gap-3 px-3 py-2.5 cursor-pointer"
-                        style={{ borderBottom: '1px solid var(--wa-border)' }}
+                        className="convo-item flex items-center gap-3 px-3 py-3 cursor-pointer"
                         onClick={() => onSelectUser(u)}
                     >
-                        <Avatar name={u.name} size={44} />
+                        <DoodleAvatar name={u.name} size={44} />
                         <div className="flex-1 min-w-0">
-                            <div className="text-[15px] truncate"
-                                style={{ color: 'var(--wa-text-primary)' }}>
+                            <div className="text-[14px] font-semibold truncate" style={{ color: 'var(--dd-text)' }}>
                                 {u.name}
                             </div>
-                            <div className="text-[13px] truncate mt-0.5"
-                                style={{ color: 'var(--wa-text-muted)' }}>
+                            <div className="text-[12px] truncate mt-0.5" style={{ color: 'var(--dd-text-muted)' }}>
                                 {u.email}
                             </div>
                         </div>
                     </div>
                 ))}
 
-                {/* Empty state */}
                 {filteredConversations.length === 0 && filteredUsers.length === 0 && (
-                    <div className="px-4 py-8 text-center text-sm"
-                        style={{ color: 'var(--wa-text-muted)' }}>
-                        {search ? 'No results found' : 'No conversations yet'}
+                    <div className="px-4 py-10 text-center"
+                        style={{ color: 'var(--dd-text-muted)', fontFamily: 'var(--font-hand)', fontSize: '18px' }}>
+                        {search ? 'No matches found 🔍' : 'No chats yet! Start a conversation ✨'}
                     </div>
                 )}
             </div>

@@ -1,130 +1,271 @@
 @import "tailwindcss";
 
-/* ─── WhatsApp Dark Theme Tokens ─── */
+/* ═══════════════════════════════════════════════
+   DOODLE DESIGN SYSTEM — Soft & Sketchy
+   ═══════════════════════════════════════════════ */
+
 :root {
-  --wa-bg: #111b21;
-  --wa-panel: #202c33;
-  --wa-header: #202c33;
-  --wa-deeper: #0b141a;
-  --wa-input: #2a3942;
-  --wa-input-border: #3b4a54;
-  --wa-green: #00a884;
-  --wa-green-hover: #06cf9c;
-  --wa-green-dark: #025144;
-  --wa-outgoing: #005c4b;
-  --wa-incoming: #202c33;
-  --wa-text-primary: #e9edef;
-  --wa-text-secondary: #8696a0;
-  --wa-text-muted: #667781;
-  --wa-border: #222d34;
-  --wa-hover: #2a3942;
-  --wa-active: #2a3942;
-  --wa-danger: #ea4335;
-  --wa-bubble-shadow: rgba(0, 0, 0, 0.13);
+  /* ── Warm backgrounds ── */
+  --dd-cream: #faf7f2;
+  --dd-paper: #f5f0e8;
+  --dd-card: #ffffff;
+  --dd-sidebar: #fef9f3;
+  --dd-hover: #f0ebe3;
+  --dd-active: #ede5d8;
+
+  /* ── Pastels ── */
+  --dd-lavender: #c4b5e0;
+  --dd-lavender-soft: #ece6f5;
+  --dd-coral: #f4a89a;
+  --dd-coral-soft: #fde8e4;
+  --dd-sage: #a8c5a0;
+  --dd-sage-soft: #e4f0e2;
+  --dd-sky: #8ec5e8;
+  --dd-sky-soft: #deeef8;
+  --dd-honey: #f0c67a;
+  --dd-honey-soft: #fdf3dc;
+  --dd-rose: #e8a0b4;
+  --dd-rose-soft: #fae0e8;
+
+  /* ── Text ── */
+  --dd-text: #3d3229;
+  --dd-text-secondary: #8a7e72;
+  --dd-text-muted: #b5aa9e;
+  --dd-text-light: #c8bfb4;
+
+  /* ── Accents & borders ── */
+  --dd-border: #e6ddd2;
+  --dd-border-sketch: #d4c8b8;
+  --dd-primary: #7c6bab;
+  --dd-primary-light: #9b8ec4;
+  --dd-danger: #e07060;
+
+  /* ── Fonts ── */
+  --font-body: 'Nunito', 'Segoe UI', sans-serif;
+  --font-hand: 'Caveat', cursive;
+  --font-sketch: 'Patrick Hand', cursive;
+
+  /* ── Shadows ── */
+  --dd-shadow-sm: 0 1px 3px rgba(61, 50, 41, 0.06);
+  --dd-shadow-md: 0 4px 12px rgba(61, 50, 41, 0.08);
+  --dd-shadow-lg: 0 8px 24px rgba(61, 50, 41, 0.1);
 }
 
-/* ─── Global Reset & Base ─── */
+/* ─── Global ─── */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
   padding: 0;
 }
 
 body {
-  font-family: 'Segoe UI', Helvetica, Arial, 'Noto Sans', sans-serif;
-  background-color: var(--wa-bg);
-  color: var(--wa-text-primary);
+  font-family: var(--font-body);
+  background-color: var(--dd-cream);
+  color: var(--dd-text);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
 }
 
-/* ─── Custom Scrollbar (WhatsApp style) ─── */
+/* ─── Scrollbar ─── */
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: rgba(134, 150, 160, 0.3);
+  background: var(--dd-border);
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(134, 150, 160, 0.5);
+  background: var(--dd-border-sketch);
 }
 
-/* ─── Chat Wallpaper Pattern ─── */
-.chat-wallpaper {
-  background-color: var(--wa-deeper);
-  background-image:
-    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23182229' fill-opacity='0.5'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+/* ═══ DOODLE BACKGROUND PATTERN ═══ */
+.doodle-bg {
+  background-color: var(--dd-cream);
+  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23e6ddd2' stroke-width='0.8' stroke-linecap='round' opacity='0.5'%3E%3Cpath d='M20 15 Q22 12 25 15 Q28 18 30 15'/%3E%3Ccircle cx='60' cy='25' r='3'/%3E%3Cpath d='M75 10 L78 16 L72 16 Z'/%3E%3Cpath d='M10 55 Q15 50 20 55 Q25 60 30 55'/%3E%3Cpath d='M45 65 L50 60 L55 65'/%3E%3Ccircle cx='80' cy='70' r='2'/%3E%3Cpath d='M65 85 Q68 80 71 85'/%3E%3Cpath d='M15 85 L17 80 L19 85'/%3E%3Cpath d='M85 45 Q88 40 91 45'/%3E%3Ccircle cx='40' cy='40' r='1.5'/%3E%3C/g%3E%3C/svg%3E");
 }
 
-/* ─── Slide Transitions ─── */
+/* ═══ SKETCH CARD ═══ */
+.sketch-card {
+  background: var(--dd-card);
+  border: 2px dashed var(--dd-border-sketch);
+  border-radius: 16px;
+  box-shadow: var(--dd-shadow-md);
+}
+
+/* ═══ SOFT TRANSITIONS ═══ */
 .slide-in-right {
-  animation: slideInRight 0.25s ease-out forwards;
+  animation: slideRight 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
+
 .slide-in-left {
-  animation: slideInLeft 0.25s ease-out forwards;
+  animation: slideLeft 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-@keyframes slideInRight {
-  from { transform: translateX(100%); opacity: 0.5; }
-  to   { transform: translateX(0);    opacity: 1; }
-}
-@keyframes slideInLeft {
-  from { transform: translateX(-100%); opacity: 0.5; }
-  to   { transform: translateX(0);     opacity: 1; }
+@keyframes slideRight {
+  from {
+    transform: translateX(60%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
-/* ─── Message Bubble Tails ─── */
-.bubble-tail-out::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: -8px;
-  width: 0;
-  height: 0;
+@keyframes slideLeft {
+  from {
+    transform: translateX(-30%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ═══ BUBBLE ANIMATIONS ═══ */
+.bubble-pop {
+  animation: bubblePop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes bubblePop {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ═══ CONVERSATION ITEM ═══ */
+.convo-item {
+  transition: all 0.2s ease;
+  border-radius: 12px;
+  margin: 2px 6px;
+}
+
+.convo-item:hover {
+  background: var(--dd-hover);
+  transform: translateX(2px);
+}
+
+.convo-item.active {
+  background: var(--dd-lavender-soft);
+  border-left: 3px solid var(--dd-lavender);
+}
+
+/* ═══ DOODLE INPUT ═══ */
+.doodle-input {
+  background: var(--dd-paper);
+  border: 2px dashed var(--dd-border);
+  border-radius: 20px;
+  transition: all 0.25s ease;
+  font-family: var(--font-body);
+}
+
+.doodle-input:focus {
+  border-color: var(--dd-lavender);
   border-style: solid;
-  border-width: 0 0 10px 8px;
-  border-color: transparent transparent transparent var(--wa-outgoing);
-}
-.bubble-tail-in::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -8px;
-  width: 0;
-  height: 0;
-  border-style: solid;
-  border-width: 0 8px 10px 0;
-  border-color: transparent var(--wa-incoming) transparent transparent;
-}
-
-/* ─── Conversation Item Hover ─── */
-.conversation-item {
-  transition: background-color 0.15s ease;
-}
-.conversation-item:hover {
-  background-color: var(--wa-hover);
-}
-
-/* ─── Focus Rings ─── */
-input:focus, textarea:focus {
+  background: var(--dd-card);
+  box-shadow: 0 0 0 3px var(--dd-lavender-soft);
   outline: none;
 }
 
-/* ─── Utility: hide scrollbar but keep scrolling ─── */
+/* ═══ WIGGLE ON HOVER ═══ */
+.wiggle:hover {
+  animation: wiggle 0.4s ease;
+}
+
+@keyframes wiggle {
+
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+
+  25% {
+    transform: rotate(-3deg);
+  }
+
+  75% {
+    transform: rotate(3deg);
+  }
+}
+
+/* ═══ NEW MSG INDICATOR ═══ */
+.new-msg-pill {
+  animation: gentleBounce 2s ease-in-out infinite;
+}
+
+@keyframes gentleBounce {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* ═══ AVATAR ═══ */
+.doodle-avatar {
+  border: 2px dashed;
+  transition: transform 0.2s ease;
+}
+
+.doodle-avatar:hover {
+  transform: scale(1.08) rotate(-3deg);
+}
+
+/* ═══ MISC ═══ */
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+}
+
+::selection {
+  background: var(--dd-lavender-soft);
+  color: var(--dd-primary);
+}
+
+/* ═══ SCALLOP DIVIDER ═══ */
+.scallop-border::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  right: 0;
+  height: 12px;
+  background: url("data:image/svg+xml,%3Csvg width='40' height='12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 12 Q10 0 20 12 Q30 0 40 12' fill='none' stroke='%23e6ddd2' stroke-width='1.5'/%3E%3C/svg%3E") repeat-x;
+  pointer-events: none;
 }

@@ -184,7 +184,7 @@ function App() {
   /* ── Mobile layout: show sidebar OR chat ── */
   if (isMobile) {
     return (
-      <div className="h-screen w-screen overflow-hidden" style={{ backgroundColor: 'var(--wa-bg)' }}>
+      <div className="h-screen w-screen overflow-hidden" style={{ backgroundColor: 'var(--dd-cream)' }}>
         {showChat && activeConversation ? (
           <div className="h-full w-full flex flex-col slide-in-right">
             <ChatPanel
@@ -217,7 +217,7 @@ function App() {
   return (
     <div
       className="flex h-screen w-screen overflow-hidden"
-      style={{ backgroundColor: 'var(--wa-deeper)' }}
+      style={{ backgroundColor: 'var(--dd-cream)' }}
     >
       {/* Sidebar */}
       <aside
@@ -226,7 +226,7 @@ function App() {
           width: '30%',
           minWidth: '300px',
           maxWidth: '420px',
-          borderRight: '1px solid var(--wa-border)',
+          borderRight: '2px dashed var(--dd-border)',
         }}
       >
         <Sidebar

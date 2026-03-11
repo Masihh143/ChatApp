@@ -1,26 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import ChatBubble from './ChatBubble';
 
-/* ── Avatar helper (same as sidebar) ── */
-function Avatar({ name, size = 40 }) {
-    const colors = [
-        '#00a884', '#53bdeb', '#ff6b6b', '#d4a574',
-        '#7c8db5', '#bf59cf', '#e8a838', '#25d366',
+/* ── Doodle Avatar ── */
+function DoodleAvatar({ name, size = 38 }) {
+    const palettes = [
+        { bg: 'var(--dd-lavender-soft)', border: 'var(--dd-lavender)', color: 'var(--dd-primary)' },
+        { bg: 'var(--dd-coral-soft)', border: 'var(--dd-coral)', color: '#c0574a' },
+        { bg: 'var(--dd-sage-soft)', border: 'var(--dd-sage)', color: '#5a8555' },
+        { bg: 'var(--dd-sky-soft)', border: 'var(--dd-sky)', color: '#4a7fa0' },
+        { bg: 'var(--dd-honey-soft)', border: 'var(--dd-honey)', color: '#a08040' },
+        { bg: 'var(--dd-rose-soft)', border: 'var(--dd-rose)', color: '#b06a7a' },
     ];
-    const idx = name ? name.charCodeAt(0) % colors.length : 0;
+    const idx = name ? name.charCodeAt(0) % palettes.length : 0;
+    const p = palettes[idx];
     const initials = name
         ? name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
         : '?';
 
     return (
         <div
-            className="flex-shrink-0 rounded-full flex items-center justify-center font-medium"
+            className="flex-shrink-0 rounded-full flex items-center justify-center font-bold doodle-avatar"
             style={{
-                width: size,
-                height: size,
-                backgroundColor: colors[idx],
-                color: '#fff',
-                fontSize: size * 0.38,
+                width: size, height: size,
+                backgroundColor: p.bg, borderColor: p.border, color: p.color,
+                fontSize: size * 0.36, fontFamily: 'var(--font-hand)',
             }}
         >
             {initials}
@@ -38,13 +41,47 @@ export default function ChatPanel({
 }) {
     const [text, setText] = useState('');
     const [file, setFile] = useState(null);
-    const bottomRef = useRef(null);
     const fileInputRef = useRef(null);
 
-    /* Auto-scroll to bottom when new messages arrive */
+    /* ── New message indicator ── */
+    const messagesEndRef = useRef(null);
+    const scrollContainerRef = useRef(null);
+    const [isAtBottom, setIsAtBottom] = useState(true);
+    const [newMsgCount, setNewMsgCount] = useState(0);
+    const prevMsgLenRef = useRef(messages.length);
+
+    const handleScroll = useCallback(() => {
+        const el = scrollContainerRef.current;
+        if (!el) return;
+        const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+        setIsAtBottom(atBottom);
+        if (atBottom) setNewMsgCount(0);
+    }, []);
+
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+        const diff = messages.length - prevMsgLenRef.current;
+        if (diff > 0) {
+            if (isAtBottom) {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                setNewMsgCount(0);
+            } else {
+                setNewMsgCount((c) => c + diff);
+            }
+        }
+        prevMsgLenRef.current = messages.length;
+    }, [messages.length, isAtBottom]);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+        setNewMsgCount(0);
+        setIsAtBottom(true);
+        prevMsgLenRef.current = messages.length;
+    }, [conversation?._id]);
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        setNewMsgCount(0);
+    };
 
     const otherUser =
         conversation?.participants.find((p) => p._id !== user.id) || conversation?.participants[0];
@@ -58,38 +95,22 @@ export default function ChatPanel({
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    /* ─── Empty state: no conversation selected ─── */
+    /* ─── Empty state ─── */
     if (!conversation) {
         return (
-            <div
-                className="flex flex-1 flex-col items-center justify-center select-none"
-                style={{ backgroundColor: 'var(--wa-deeper)' }}
-            >
-                <div className="w-[320px] text-center">
-                    {/* Illustration */}
-                    <div className="mx-auto mb-6 w-20 h-20 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: 'var(--wa-panel)' }}>
-                        <svg viewBox="0 0 303 172" width="72" fill="none">
-                            <path
-                                d="M229.565 160.229c32.647-16.166 55.563-50.206 55.563-89.229C285.128 31.763 253.365 0 214.128 0c-30.674 0-57.162 19.465-67.128 46.712C136.934 19.465 110.446 0 79.772 0 40.535 0 8.772 31.763 8.772 71c0 39.023 22.916 73.063 55.563 89.229L147 172l82.565-11.771z"
-                                fill="var(--wa-green)" fillOpacity=".08"
-                            />
-                        </svg>
-                    </div>
-                    <h2 className="text-2xl font-light mb-2.5"
-                        style={{ color: 'var(--wa-text-primary)' }}>
-                        ChatApp Web
+            <div className="flex flex-1 flex-col items-center justify-center select-none doodle-bg">
+                <div className="text-center max-w-[320px]">
+                    <div className="text-6xl mb-4">💭</div>
+                    <h2 className="text-2xl font-bold mb-2"
+                        style={{ fontFamily: 'var(--font-hand)', color: 'var(--dd-primary)' }}>
+                        Pick a friend!
                     </h2>
                     <p className="text-sm leading-relaxed"
-                        style={{ color: 'var(--wa-text-muted)' }}>
-                        Send and receive messages. Select a conversation from the sidebar to start chatting.
+                        style={{ color: 'var(--dd-text-secondary)', fontFamily: 'var(--font-sketch)' }}>
+                        Select a conversation from the sidebar to start chatting. Your messages are safe and cozy here ✨
                     </p>
-                    <div className="mt-8 flex items-center justify-center gap-1.5 text-xs"
-                        style={{ color: 'var(--wa-text-muted)' }}>
-                        <svg viewBox="0 0 10 12" width="10" fill="currentColor" opacity="0.5">
-                            <path d="M5.008 0C2.444 0 .36 2.084.36 4.648v2.704C.36 9.916 2.444 12 5.008 12s4.648-2.084 4.648-4.648V4.648C9.656 2.084 7.572 0 5.008 0zm3.2 7.352c0 1.764-1.436 3.2-3.2 3.2s-3.2-1.436-3.2-3.2V4.648c0-1.764 1.436-3.2 3.2-3.2s3.2 1.436 3.2 3.2v2.704z" />
-                        </svg>
-                        End-to-end encrypted
+                    <div className="mt-6 text-lg opacity-30" style={{ fontFamily: 'var(--font-hand)' }}>
+                        ✿ ☆ ♡ ✦
                     </div>
                 </div>
             </div>
@@ -98,85 +119,88 @@ export default function ChatPanel({
 
     /* ─── Active conversation ─── */
     return (
-        <div className="flex flex-1 flex-col h-full" style={{ backgroundColor: 'var(--wa-deeper)' }}>
+        <div className="flex flex-1 flex-col h-full" style={{ backgroundColor: 'var(--dd-cream)' }}>
+
             {/* ═══ Header ═══ */}
-            <div
-                className="flex items-center gap-3 px-3 py-2 flex-shrink-0"
+            <div className="relative flex items-center gap-3 px-4 py-2.5 flex-shrink-0"
                 style={{
-                    backgroundColor: 'var(--wa-header)',
-                    borderBottom: '1px solid var(--wa-border)',
-                }}
-            >
-                {/* Back button — visible on mobile only */}
+                    backgroundColor: 'var(--dd-card)',
+                    borderBottom: '2px dashed var(--dd-border)',
+                    boxShadow: 'var(--dd-shadow-sm)',
+                }}>
                 {isMobile && (
                     <button
                         onClick={onBack}
-                        className="p-1 rounded-full transition-colors cursor-pointer mr-1"
-                        style={{ color: 'var(--wa-text-secondary)' }}
-                        onMouseOver={(e) => (e.currentTarget.style.color = 'var(--wa-green)')}
-                        onMouseOut={(e) => (e.currentTarget.style.color = 'var(--wa-text-secondary)')}
+                        className="p-1 rounded-full cursor-pointer transition-colors"
+                        style={{ color: 'var(--dd-primary)' }}
                     >
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
                             <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
                         </svg>
                     </button>
                 )}
-                <Avatar name={otherUser?.name} size={38} />
+                <DoodleAvatar name={otherUser?.name} size={38} />
                 <div className="flex-1 min-w-0">
-                    <div className="text-[15px] font-medium truncate"
-                        style={{ color: 'var(--wa-text-primary)' }}>
-                        {otherUser?.name || 'Conversation'}
+                    <div className="text-[16px] font-bold truncate"
+                        style={{ fontFamily: 'var(--font-hand)', color: 'var(--dd-text)' }}>
+                        {otherUser?.name || 'Friend'}
                     </div>
-                    <div className="text-[12px]" style={{ color: 'var(--wa-text-muted)' }}>
+                    <div className="flex items-center gap-1.5 text-[11px]"
+                        style={{ color: 'var(--dd-sage)', fontFamily: 'var(--font-sketch)' }}>
+                        <span className="inline-block w-1.5 h-1.5 rounded-full"
+                            style={{ backgroundColor: 'var(--dd-sage)' }} />
                         online
                     </div>
                 </div>
-                {/* Actions */}
-                <div className="flex items-center gap-1">
-                    <button className="p-2 rounded-full cursor-pointer"
-                        style={{ color: 'var(--wa-text-secondary)' }}>
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                            <path d="M15.009 13.805h-.636l-.22-.219a5.184 5.184 0 001.256-3.386 5.207 5.207 0 10-5.207 5.208 5.183 5.183 0 003.385-1.255l.221.22v.635l4.004 3.999 1.194-1.195-3.997-4.007zm-4.808 0a3.6 3.6 0 110-7.202 3.6 3.6 0 010 7.202z" />
-                        </svg>
-                    </button>
-                    <button className="p-2 rounded-full cursor-pointer"
-                        style={{ color: 'var(--wa-text-secondary)' }}>
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                            <path d="M12 7a2 2 0 10-.001-4.001A2 2 0 0012 7zm0 2a2 2 0 10-.001 3.999A2 2 0 0012 9zm0 6a2 2 0 10-.001 3.999A2 2 0 0012 15z" />
-                        </svg>
-                    </button>
-                </div>
             </div>
 
-            {/* ═══ Messages Area ═══ */}
-            <div className="chat-wallpaper flex-1 overflow-y-auto px-[5%] md:px-[12%] py-2">
-                {messages.map((m, i) => {
+            {/* ═══ Messages ═══ */}
+            <div
+                ref={scrollContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto px-[4%] md:px-[10%] py-3 doodle-bg"
+            >
+                {messages.map((m) => {
                     const own = m.sender._id === user.id;
-                    /* Show tail on first message or when sender changes */
-                    const prevMsg = messages[i - 1];
-                    const showTail = !prevMsg || prevMsg.sender._id !== m.sender._id;
-                    return (
-                        <ChatBubble key={m._id} message={m} isOwn={own} showTail={showTail} />
-                    );
+                    return <ChatBubble key={m._id} message={m} isOwn={own} />;
                 })}
-                <div ref={bottomRef} />
+                <div ref={messagesEndRef} />
             </div>
+
+            {/* ═══ New Message Indicator ═══ */}
+            {newMsgCount > 0 && (
+                <button
+                    onClick={scrollToBottom}
+                    className="absolute z-20 right-6 bottom-[72px] flex items-center gap-1.5 px-3.5 py-2 rounded-full cursor-pointer new-msg-pill transition-transform hover:scale-105"
+                    style={{
+                        background: 'var(--dd-primary)',
+                        color: '#fff',
+                        fontFamily: 'var(--font-hand)',
+                        fontSize: '15px',
+                        boxShadow: 'var(--dd-shadow-lg)',
+                        border: '2px dashed rgba(255,255,255,0.3)',
+                    }}
+                >
+                    <span className="font-bold">{newMsgCount} new</span>
+                    <span>↓</span>
+                </button>
+            )}
 
             {/* ═══ File Preview ═══ */}
             {file && (
-                <div
-                    className="flex items-center gap-2 px-4 py-2 text-xs"
+                <div className="flex items-center gap-2 px-4 py-2 text-[12px] flex-shrink-0"
                     style={{
-                        backgroundColor: 'var(--wa-panel)',
-                        borderTop: '1px solid var(--wa-border)',
-                        color: 'var(--wa-text-secondary)',
-                    }}
-                >
-                    <span>📎 {file.name}</span>
+                        backgroundColor: 'var(--dd-honey-soft)',
+                        borderTop: '1px dashed var(--dd-honey)',
+                        color: 'var(--dd-text-secondary)',
+                        fontFamily: 'var(--font-sketch)',
+                    }}>
+                    <span>📎</span>
+                    <span className="truncate">{file.name}</span>
                     <button
                         onClick={() => { setFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
-                        className="ml-auto text-sm cursor-pointer"
-                        style={{ color: 'var(--wa-danger)' }}
+                        className="ml-auto cursor-pointer text-sm"
+                        style={{ color: 'var(--dd-danger)' }}
                     >
                         ✕
                     </button>
@@ -186,28 +210,26 @@ export default function ChatPanel({
             {/* ═══ Input Bar ═══ */}
             <form
                 onSubmit={handleSubmit}
-                className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
+                className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0"
                 style={{
-                    backgroundColor: 'var(--wa-panel)',
-                    borderTop: '1px solid var(--wa-border)',
+                    backgroundColor: 'var(--dd-card)',
+                    borderTop: '2px dashed var(--dd-border)',
                 }}
             >
-                {/* Emoji placeholder */}
-                <button type="button" className="p-1.5 rounded-full cursor-pointer flex-shrink-0"
-                    style={{ color: 'var(--wa-text-secondary)' }}>
-                    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                        <path d="M9.153 11.603c.795 0 1.44-.88 1.44-1.962s-.645-1.962-1.44-1.962-1.44.88-1.44 1.962.645 1.962 1.44 1.962zm5.694 0c.795 0 1.44-.88 1.44-1.962s-.645-1.962-1.44-1.962-1.44.88-1.44 1.962.645 1.962 1.44 1.962zM11.84 16.249c2.178 0 4.152-1.283 5.053-3.253H6.787c.9 1.97 2.875 3.253 5.053 3.253zM12 1.014C5.926 1.014 1.014 5.926 1.014 12S5.926 22.986 12 22.986 22.986 18.074 22.986 12 18.074 1.014 12 1.014zM12 21.5a9.5 9.5 0 110-19 9.5 9.5 0 010 19z" />
-                    </svg>
-                </button>
-
                 {/* Attachment */}
-                <label className="p-1.5 rounded-full cursor-pointer flex-shrink-0 transition-colors"
-                    style={{ color: 'var(--wa-text-secondary)' }}
-                    onMouseOver={(e) => (e.currentTarget.style.color = 'var(--wa-green)')}
-                    onMouseOut={(e) => (e.currentTarget.style.color = 'var(--wa-text-secondary)')}
+                <label className="p-2 rounded-full cursor-pointer transition-colors flex-shrink-0 wiggle"
+                    style={{ color: 'var(--dd-text-secondary)', background: 'var(--dd-paper)' }}
+                    onMouseOver={(e) => {
+                        e.currentTarget.style.color = 'var(--dd-primary)';
+                        e.currentTarget.style.background = 'var(--dd-lavender-soft)';
+                    }}
+                    onMouseOut={(e) => {
+                        e.currentTarget.style.color = 'var(--dd-text-secondary)';
+                        e.currentTarget.style.background = 'var(--dd-paper)';
+                    }}
                 >
-                    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                        <path d="M1.816 15.556v.002c0 1.502.584 2.912 1.646 3.972s2.472 1.647 3.974 1.647a5.58 5.58 0 003.972-1.645l9.547-9.548c.769-.768 1.147-1.767 1.058-2.817-.079-.968-.548-1.927-1.319-2.698-1.594-1.592-4.068-1.711-5.517-.262l-7.916 7.915c-.881.881-.792 2.25.214 3.261.501.501 1.103.798 1.645.798.364 0 .724-.195 1.001-.472l4.531-4.527-.707-.708-4.536 4.533c-.147.147-.313.22-.504.22-.303 0-.694-.197-1.073-.576-.726-.726-.882-1.545-.436-1.993l7.915-7.916c1.056-1.056 3.08-.953 4.31.278.59.59.937 1.312.993 2.022.051.643-.185 1.313-.666 1.795L8.394 19.863a4.198 4.198 0 01-2.958 1.228c-1.12 0-2.171-.437-2.961-1.226a4.155 4.155 0 01-1.231-2.96c0-1.115.436-2.17 1.228-2.96L13.01 3.407l-.707-.707L1.764 13.236a5.58 5.58 0 00-1.644 3.972l.003.003-.307.345z" />
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 015 0v10.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5V6H9v9.5a3 3 0 006 0V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z" />
                     </svg>
                     <input
                         ref={fileInputRef}
@@ -221,13 +243,9 @@ export default function ChatPanel({
                 {/* Text input */}
                 <input
                     type="text"
-                    placeholder="Type a message"
-                    className="flex-1 rounded-lg px-3 py-2 text-[14px]"
-                    style={{
-                        backgroundColor: 'var(--wa-input)',
-                        color: 'var(--wa-text-primary)',
-                        border: 'none',
-                    }}
+                    placeholder="Type something nice..."
+                    className="flex-1 px-4 py-2.5 text-[14px] doodle-input"
+                    style={{ color: 'var(--dd-text)' }}
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                 />
@@ -235,13 +253,15 @@ export default function ChatPanel({
                 {/* Send button */}
                 <button
                     type="submit"
-                    className="p-2 rounded-full transition-colors cursor-pointer flex-shrink-0"
-                    style={{ color: 'var(--wa-text-secondary)' }}
-                    onMouseOver={(e) => (e.currentTarget.style.color = 'var(--wa-green)')}
-                    onMouseOut={(e) => (e.currentTarget.style.color = 'var(--wa-text-secondary)')}
+                    className="p-2.5 rounded-full cursor-pointer flex-shrink-0 transition-all duration-200 wiggle"
+                    style={{
+                        color: text.trim() || file ? '#fff' : 'var(--dd-text-muted)',
+                        background: text.trim() || file ? 'var(--dd-primary)' : 'var(--dd-paper)',
+                        boxShadow: text.trim() || file ? 'var(--dd-shadow-md)' : 'none',
+                    }}
                 >
-                    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                        <path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z" />
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                     </svg>
                 </button>
             </form>

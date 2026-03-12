@@ -1,4 +1,10 @@
-export default function ChatBubble({ message, isOwn }) {
+import { memo } from 'react';
+
+/**
+ * ChatBubble — wrapped in React.memo so it only re-renders when
+ * its own message or isOwn prop changes (prevents full-list repaints).
+ */
+const ChatBubble = memo(function ChatBubble({ message, isOwn }) {
     const bubbleColors = isOwn
         ? { bg: 'var(--dd-lavender-soft)', border: 'var(--dd-lavender)', text: 'var(--dd-text)', timeColor: 'var(--dd-primary-light)' }
         : { bg: 'var(--dd-card)', border: 'var(--dd-border-sketch)', text: 'var(--dd-text)', timeColor: 'var(--dd-text-muted)' };
@@ -54,4 +60,6 @@ export default function ChatBubble({ message, isOwn }) {
             </div>
         </div>
     );
-}
+});
+
+export default ChatBubble;

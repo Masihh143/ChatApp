@@ -2,6 +2,7 @@ import express from 'express';
 import Conversation from '../models/Conversation.js';
 import User from '../models/User.js';
 import { verifyHttpToken } from '../config/token.js';
+import { enqueueBackup } from '../config/backupQueue.js';
 
 const router = express.Router();
 
@@ -14,7 +15,8 @@ router.get('/', async (req, res) => {
       participants: req.userId
     })
       .sort({ updatedAt: -1 })
-      .populate('participants', 'name email');
+      .populate('participants', 'name email')
+      .lean();
 
     res.json(conversations);
   } catch (err) {
@@ -32,7 +34,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: 'otherUserId required' });
     }
 
-    const other = await User.findById(otherUserId);
+    const other = await User.findById(otherUserId).lean();
     if (!other) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -46,6 +48,9 @@ router.post('/', async (req, res) => {
         participants: [req.userId, otherUserId]
       });
       convo = await convo.populate('participants', 'name email');
+
+      // Fire-and-forget backup
+      enqueueBackup('Conversation', 'upsert', convo.toObject());
     }
 
     res.json(convo);
@@ -57,5 +62,3 @@ router.post('/', async (req, res) => {
 });
 
 export default router;
-
-

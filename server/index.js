@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import { Server as SocketIOServer } from 'socket.io';
 import './config/db.js';
+import './config/backupQueue.js'; // Initialize backup queue on startup
 import authRouter from './routes/auth.js';
 import conversationRouter from './routes/conversations.js';
 import messageRouter from './routes/messages.js';
@@ -80,7 +81,7 @@ io.on('connection', (socket) => {
     socket.join(`conversation:${conversationId}`);
   });
 
-  socket.on('disconnect', () => {});
+  socket.on('disconnect', () => { });
 });
 
 const PORT = process.env.PORT || 5000;

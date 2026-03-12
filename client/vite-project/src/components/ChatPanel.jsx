@@ -38,10 +38,13 @@ export default function ChatPanel({
     onSendMessage,
     onBack,
     isMobile,
+    hasMore,
+    loadOlderMessages,
 }) {
     const [text, setText] = useState('');
     const [file, setFile] = useState(null);
     const fileInputRef = useRef(null);
+    const [loadingOlder, setLoadingOlder] = useState(false);
 
     /* ── New message indicator ── */
     const messagesEndRef = useRef(null);
@@ -81,6 +84,16 @@ export default function ChatPanel({
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         setNewMsgCount(0);
+    };
+
+    const handleLoadOlder = async () => {
+        if (!loadOlderMessages || loadingOlder) return;
+        setLoadingOlder(true);
+        try {
+            await loadOlderMessages();
+        } finally {
+            setLoadingOlder(false);
+        }
     };
 
     const otherUser =
@@ -160,6 +173,24 @@ export default function ChatPanel({
                 onScroll={handleScroll}
                 className="flex-1 overflow-y-auto px-[4%] md:px-[10%] py-3 doodle-bg"
             >
+                {/* Load older messages button */}
+                {hasMore && (
+                    <div className="flex justify-center py-3">
+                        <button
+                            onClick={handleLoadOlder}
+                            disabled={loadingOlder}
+                            className="px-4 py-1.5 rounded-full text-[12px] cursor-pointer transition-all duration-200 wiggle"
+                            style={{
+                                background: 'var(--dd-lavender-soft)',
+                                color: 'var(--dd-primary)',
+                                border: '1.5px dashed var(--dd-lavender)',
+                                fontFamily: 'var(--font-sketch)',
+                            }}
+                        >
+                            {loadingOlder ? 'Loading...' : '↑ Load older messages'}
+                        </button>
+                    </div>
+                )}
                 {messages.map((m) => {
                     const own = m.sender._id === user.id;
                     return <ChatBubble key={m._id} message={m} isOwn={own} />;

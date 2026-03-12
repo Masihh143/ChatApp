@@ -1,6 +1,7 @@
 import express from 'express';
 import User from '../models/User.js';
 import { signToken } from '../config/token.js';
+import { enqueueBackup } from '../config/backupQueue.js';
 
 const router = express.Router();
 
@@ -11,7 +12,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'Missing fields' });
     }
 
-    const existing = await User.findOne({ email });
+    const existing = await User.findOne({ email }).lean();
     if (existing) {
       return res.status(400).json({ message: 'Email already in use' });
     }
@@ -20,6 +21,9 @@ router.post('/register', async (req, res) => {
 
     const user = await User.create({ name, email, passwordHash });
     const token = signToken(user._id.toString());
+
+    // Fire-and-forget backup
+    enqueueBackup('User', 'upsert', user.toObject());
 
     res.json({
       token,
@@ -59,5 +63,3 @@ router.post('/login', async (req, res) => {
 });
 
 export default router;
-
-

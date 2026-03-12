@@ -27,6 +27,7 @@ function App() {
   const [allUsers, setAllUsers] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [hasMore, setHasMore] = useState(false);
 
   /* ─── Responsive state ─── */
   const [isMobile, setIsMobile] = useState(window.innerWidth < MOBILE_BREAKPOINT);
@@ -123,10 +124,25 @@ function App() {
       if (socket) {
         socket.emit('conversation:join', conversation._id);
       }
-      const res = await authClient.get(`/messages/${conversation._id}`);
-      setMessages(res.data);
+      const res = await authClient.get(`/messages/${conversation._id}?limit=30`);
+      setMessages(res.data.messages);
+      setHasMore(res.data.hasMore);
     },
     [authClient, socket, isMobile]
+  );
+
+  /* ─── Load older messages (pagination) ─── */
+  const loadOlderMessages = useCallback(
+    async () => {
+      if (!activeConversation || !hasMore || messages.length === 0) return;
+      const oldestId = messages[0]._id;
+      const res = await authClient.get(
+        `/messages/${activeConversation._id}?before=${oldestId}&limit=30`
+      );
+      setMessages((prev) => [...res.data.messages, ...prev]);
+      setHasMore(res.data.hasMore);
+    },
+    [activeConversation, hasMore, messages, authClient]
   );
 
   const ensureConversationWithUser = useCallback(
@@ -183,6 +199,7 @@ function App() {
     setActiveConversation(null);
     setConversations([]);
     setMessages([]);
+    setHasMore(false);
     setShowChat(false);
   }, []);
 
@@ -208,6 +225,8 @@ function App() {
               onSendMessage={handleSendMessage}
               onBack={handleBack}
               isMobile={true}
+              hasMore={hasMore}
+              loadOlderMessages={loadOlderMessages}
             />
           </div>
         ) : (
@@ -267,6 +286,8 @@ function App() {
           onSendMessage={handleSendMessage}
           onBack={handleBack}
           isMobile={false}
+          hasMore={hasMore}
+          loadOlderMessages={loadOlderMessages}
         />
       </section>
     </div>

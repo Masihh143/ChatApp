@@ -12,7 +12,9 @@ router.get('/', async (req, res) => {
     const users = await User.find(
       { _id: { $ne: req.userId } },
       { name: 1, email: 1 }
-    ).sort({ name: 1 });
+    )
+      .sort({ name: 1 })
+      .lean();
 
     res.json(users);
   } catch (err) {
@@ -23,5 +25,3 @@ router.get('/', async (req, res) => {
 });
 
 export default router;
-
-

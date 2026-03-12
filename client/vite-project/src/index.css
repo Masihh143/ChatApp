@@ -51,6 +51,44 @@
   --dd-shadow-lg: 0 8px 24px rgba(61, 50, 41, 0.1);
 }
 
+/* ═══ DARK THEME ═══ */
+[data-theme="dark"] {
+  --dd-cream: #1a1a24;
+  --dd-paper: #22222e;
+  --dd-card: #252533;
+  --dd-sidebar: #1e1e2a;
+  --dd-hover: #2c2c3a;
+  --dd-active: #333342;
+
+  --dd-lavender: #9b8cc4;
+  --dd-lavender-soft: rgba(155, 140, 196, 0.15);
+  --dd-coral: #d4897c;
+  --dd-coral-soft: rgba(212, 137, 124, 0.12);
+  --dd-sage: #8aad82;
+  --dd-sage-soft: rgba(138, 173, 130, 0.12);
+  --dd-sky: #72a8cc;
+  --dd-sky-soft: rgba(114, 168, 204, 0.12);
+  --dd-honey: #d4ad60;
+  --dd-honey-soft: rgba(212, 173, 96, 0.12);
+  --dd-rose: #cc8898;
+  --dd-rose-soft: rgba(204, 136, 152, 0.12);
+
+  --dd-text: #e0ddd8;
+  --dd-text-secondary: #9a9490;
+  --dd-text-muted: #6a645e;
+  --dd-text-light: #504a44;
+
+  --dd-border: #363644;
+  --dd-border-sketch: #444458;
+  --dd-primary: #9b8cc4;
+  --dd-primary-light: #b0a4d4;
+  --dd-danger: #d46858;
+
+  --dd-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --dd-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --dd-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
 /* ─── Global ─── */
 *,
 *::before,
@@ -96,6 +134,14 @@ body {
 .doodle-bg {
   background-color: var(--dd-cream);
   background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23e6ddd2' stroke-width='0.8' stroke-linecap='round' opacity='0.5'%3E%3Cpath d='M20 15 Q22 12 25 15 Q28 18 30 15'/%3E%3Ccircle cx='60' cy='25' r='3'/%3E%3Cpath d='M75 10 L78 16 L72 16 Z'/%3E%3Cpath d='M10 55 Q15 50 20 55 Q25 60 30 55'/%3E%3Cpath d='M45 65 L50 60 L55 65'/%3E%3Ccircle cx='80' cy='70' r='2'/%3E%3Cpath d='M65 85 Q68 80 71 85'/%3E%3Cpath d='M15 85 L17 80 L19 85'/%3E%3Cpath d='M85 45 Q88 40 91 45'/%3E%3Ccircle cx='40' cy='40' r='1.5'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+[data-theme="dark"] .doodle-bg {
+  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23363644' stroke-width='0.8' stroke-linecap='round' opacity='0.5'%3E%3Cpath d='M20 15 Q22 12 25 15 Q28 18 30 15'/%3E%3Ccircle cx='60' cy='25' r='3'/%3E%3Cpath d='M75 10 L78 16 L72 16 Z'/%3E%3Cpath d='M10 55 Q15 50 20 55 Q25 60 30 55'/%3E%3Cpath d='M45 65 L50 60 L55 65'/%3E%3Ccircle cx='80' cy='70' r='2'/%3E%3Cpath d='M65 85 Q68 80 71 85'/%3E%3Cpath d='M15 85 L17 80 L19 85'/%3E%3Cpath d='M85 45 Q88 40 91 45'/%3E%3Ccircle cx='40' cy='40' r='1.5'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+[data-theme="dark"] .scallop-border::after {
+  background-image: url("data:image/svg+xml,%3Csvg width='40' height='12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 12 Q10 0 20 12 Q30 0 40 12' fill='none' stroke='%23363644' stroke-width='1.5'/%3E%3C/svg%3E");
 }
 
 /* ═══ SKETCH CARD ═══ */

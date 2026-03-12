@@ -32,6 +32,20 @@ function App() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < MOBILE_BREAKPOINT);
   const [showChat, setShowChat] = useState(false); // mobile: sidebar vs chat
 
+  /* ─── Theme state ─── */
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('chatapp-theme') || 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('chatapp-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => (t === 'light' ? 'dark' : 'light'));
+  }, []);
+
   /* ── Listen for resize ── */
   useEffect(() => {
     const handleResize = () => {
@@ -178,7 +192,7 @@ function App() {
 
   /* Auth screen */
   if (!token) {
-    return <AuthScreen onAuth={handleAuth} apiBase={API_BASE} />;
+    return <AuthScreen onAuth={handleAuth} apiBase={API_BASE} theme={theme} toggleTheme={toggleTheme} />;
   }
 
   /* ── Mobile layout: show sidebar OR chat ── */
@@ -206,6 +220,8 @@ function App() {
               onSelectUser={ensureConversationWithUser}
               onOpenConversation={openConversation}
               onLogout={handleLogout}
+              theme={theme}
+              toggleTheme={toggleTheme}
             />
           </div>
         )}
@@ -237,6 +253,8 @@ function App() {
           onSelectUser={ensureConversationWithUser}
           onOpenConversation={openConversation}
           onLogout={handleLogout}
+          theme={theme}
+          toggleTheme={toggleTheme}
         />
       </aside>
 

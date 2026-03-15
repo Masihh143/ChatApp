@@ -14,8 +14,12 @@ import conversationRouter from './routes/conversations.js';
 import messageRouter from './routes/messages.js';
 import usersRouter from './routes/users.js';
 import { verifySocketToken } from './config/token.js';
+import Conversation from './models/Conversation.js';
 
 dotenv.config();
+
+/* ─── Presence: "logged in = online". userId -> Set of socketIds; user is online while they have an active socket (app open, logged in). ─── */
+const connectedUsers = new Map();
 
 const app = express();
 const server = http.createServer(app);
@@ -72,16 +76,54 @@ if (existsSync(clientDistDir)) {
 // Socket.io
 io.use(verifySocketToken);
 
-io.on('connection', (socket) => {
-  const userId = socket.userId;
+// Online = user has at least one active socket (logged in, app open). No need for them to be in any conversation.
+function isUserOnline(userId) {
+  const set = connectedUsers.get(String(userId));
+  return set != null && set.size > 0;
+}
 
-  socket.join(String(userId));
+io.on('connection', (socket) => {
+  const userId = String(socket.userId);
+  socket.join(userId);
+  if (!connectedUsers.has(userId)) connectedUsers.set(userId, new Set());
+  connectedUsers.get(userId).add(socket.id);
+  // User is now "logged in" (online). Notify their conversation rooms so others see them online.
+  Conversation.find({ participants: userId }, '_id participants')
+    .then((convos) => {
+      socket.conversationIds = convos.map((c) => c._id.toString());
+      convos.forEach((c) => socket.join(`conversation:${c._id}`));
+      convos.forEach((c) => {
+        io.to(`conversation:${c._id}`).emit('presence:update', { userId, online: true });
+      });
+    })
+    .catch(() => {});
 
   socket.on('conversation:join', (conversationId) => {
-    socket.join(`conversation:${conversationId}`);
+    const cid = String(conversationId);
+    socket.join(`conversation:${cid}`);
+    // Send who is online in this conversation: anyone logged in (has socket), regardless of whether they have this chat open.
+    Conversation.findById(cid)
+      .select('participants')
+      .then((convo) => {
+        if (!convo) return;
+        const participantIds = convo.participants.map((p) => p.toString());
+        const onlineUserIds = participantIds.filter((id) => isUserOnline(id));
+        socket.emit('presence', { conversationId: cid, onlineUserIds });
+      })
+      .catch(() => {});
   });
 
-  socket.on('disconnect', () => { });
+  socket.on('disconnect', () => {
+    connectedUsers.get(userId)?.delete(socket.id);
+    if (connectedUsers.get(userId)?.size === 0) {
+      connectedUsers.delete(userId);
+      // User is now offline (logged out or closed app). Notify their conversation rooms.
+      const cids = socket.conversationIds || [];
+      cids.forEach((cid) => {
+        io.to(`conversation:${cid}`).emit('presence:update', { userId, online: false });
+      });
+    }
+  });
 });
 
 const PORT = process.env.PORT || 5000;

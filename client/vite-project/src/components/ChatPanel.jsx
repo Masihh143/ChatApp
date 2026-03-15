@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import ChatBubble from './ChatBubble';
 
+/* ── Common emojis for picker (WhatsApp-style) ── */
+const EMOJI_CATEGORIES = [
+    ['😀', '😃', '😄', '😁', '😅', '😂', '🤣', '😊', '😇', '🙂', '😉', '😍', '🥰', '😘', '😗', '😋', '😛', '😜', '🤪', '😎'],
+    ['👍', '👎', '👏', '🙌', '👋', '🤝', '🙏', '✌️', '🤞', '🤟', '🤘', '👌', '🤌', '🤙', '💪', '❤️', '🧡', '💛', '💚', '💙'],
+    ['🔥', '⭐', '✨', '💫', '🌟', '🙈', '🙉', '🙊', '💯', '✅', '❌', '❗', '❓', '💬', '💭', '🗨️', '👀', '🎉', '🎊', '🙏'],
+];
+
 /* ── Doodle Avatar ── */
 function DoodleAvatar({ name, size = 38 }) {
     const palettes = [
@@ -40,11 +47,15 @@ export default function ChatPanel({
     isMobile,
     hasMore,
     loadOlderMessages,
+    otherUserOnline = false,
 }) {
     const [text, setText] = useState('');
     const [file, setFile] = useState(null);
     const fileInputRef = useRef(null);
     const [loadingOlder, setLoadingOlder] = useState(false);
+    const [replyingTo, setReplyingTo] = useState(null);
+    const [emojiOpen, setEmojiOpen] = useState(false);
+    const emojiPickerRef = useRef(null);
 
     /* ── New message indicator ── */
     const messagesEndRef = useRef(null);
@@ -99,13 +110,39 @@ export default function ChatPanel({
     const otherUser =
         conversation?.participants.find((p) => p._id !== user.id) || conversation?.participants[0];
 
+    const handleReply = useCallback((message) => {
+        setReplyingTo(message);
+        setEmojiOpen(false);
+    }, []);
+
+    /* Close emoji picker on outside click */
+    useEffect(() => {
+        if (!emojiOpen) return;
+        const fn = (e) => {
+            if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target)) setEmojiOpen(false);
+        };
+        document.addEventListener('click', fn);
+        return () => document.removeEventListener('click', fn);
+    }, [emojiOpen]);
+
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!text.trim() && !file) return;
-        onSendMessage(text, file);
+        let finalText = text.trim();
+        if (replyingTo) {
+            const name = replyingTo.sender?._id === user.id ? 'You' : (otherUser?.name || 'Friend');
+            const snippet = (replyingTo.text || '📎 Media').slice(0, 50) + ((replyingTo.text && replyingTo.text.length > 50) ? '…' : '');
+            finalText = `↩ ${name}: ${snippet}\n\n${finalText}`.trim();
+            setReplyingTo(null);
+        }
+        onSendMessage(finalText, file);
         setText('');
         setFile(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const insertEmoji = (emoji) => {
+        setText((prev) => prev + emoji);
     };
 
     /* ─── Empty state ─── */
@@ -159,10 +196,10 @@ export default function ChatPanel({
                         {otherUser?.name || 'Friend'}
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px]"
-                        style={{ color: 'var(--dd-sage)', fontFamily: 'var(--font-sketch)' }}>
+                        style={{ color: otherUserOnline ? 'var(--dd-sage)' : 'var(--dd-text-muted)', fontFamily: 'var(--font-sketch)' }}>
                         <span className="inline-block w-1.5 h-1.5 rounded-full"
-                            style={{ backgroundColor: 'var(--dd-sage)' }} />
-                        online
+                            style={{ backgroundColor: otherUserOnline ? 'var(--dd-sage)' : 'var(--dd-text-muted)' }} />
+                        {otherUserOnline ? 'online' : 'offline'}
                     </div>
                 </div>
             </div>
@@ -193,7 +230,7 @@ export default function ChatPanel({
                 )}
                 {messages.map((m) => {
                     const own = m.sender._id === user.id;
-                    return <ChatBubble key={m._id} message={m} isOwn={own} />;
+                    return <ChatBubble key={m._id} message={m} isOwn={own} onReply={handleReply} isMobile={isMobile} />;
                 })}
                 <div ref={messagesEndRef} />
             </div>
@@ -215,6 +252,36 @@ export default function ChatPanel({
                     <span className="font-bold">{newMsgCount} new</span>
                     <span>↓</span>
                 </button>
+            )}
+
+            {/* ═══ Reply preview bar ═══ */}
+            {replyingTo && (
+                <div
+                    className="flex items-center gap-2 px-4 py-2 flex-shrink-0"
+                    style={{
+                        backgroundColor: 'var(--dd-reply-bar)',
+                        borderTop: '1px dashed var(--dd-lavender)',
+                        fontFamily: 'var(--font-sketch)',
+                    }}
+                >
+                    <span className="text-lg" style={{ color: 'var(--dd-primary)' }}>↩</span>
+                    <div className="flex-1 min-w-0">
+                        <div className="text-[11px] font-bold" style={{ color: 'var(--dd-primary)' }}>
+                            {replyingTo.sender?._id === user.id ? 'You' : (otherUser?.name || 'Friend')}
+                        </div>
+                        <div className="text-[12px] truncate" style={{ color: 'var(--dd-text-secondary)' }}>
+                            {(replyingTo.text || '📎 Media').slice(0, 60)}{(replyingTo.text && replyingTo.text.length > 60) ? '…' : ''}
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setReplyingTo(null)}
+                        className="p-1 rounded-full cursor-pointer flex-shrink-0"
+                        style={{ color: 'var(--dd-text-muted)' }}
+                    >
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg>
+                    </button>
+                </div>
             )}
 
             {/* ═══ File Preview ═══ */}
@@ -241,12 +308,56 @@ export default function ChatPanel({
             {/* ═══ Input Bar ═══ */}
             <form
                 onSubmit={handleSubmit}
-                className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0"
+                className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0 relative"
                 style={{
                     backgroundColor: 'var(--dd-card)',
                     borderTop: '2px dashed var(--dd-border)',
                 }}
             >
+                {/* Emoji picker button + popover */}
+                <div className="relative flex-shrink-0" ref={emojiPickerRef}>
+                    <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); setEmojiOpen((o) => !o); }}
+                        className="p-2 rounded-full cursor-pointer transition-colors flex-shrink-0 wiggle"
+                        style={{ color: emojiOpen ? 'var(--dd-primary)' : 'var(--dd-text-secondary)', background: emojiOpen ? 'var(--dd-lavender-soft)' : 'var(--dd-paper)' }}
+                        aria-label="Emoji"
+                    >
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
+                        </svg>
+                    </button>
+                    {emojiOpen && (
+                        <div
+                            className="absolute bottom-full left-0 mb-1 p-2 rounded-xl overflow-y-auto z-30"
+                            style={{
+                                width: '280px',
+                                maxHeight: '220px',
+                                backgroundColor: 'var(--dd-card)',
+                                border: '2px dashed var(--dd-border)',
+                                boxShadow: 'var(--dd-shadow-lg)',
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {EMOJI_CATEGORIES.map((row, i) => (
+                                <div key={i} className="flex flex-wrap gap-1 py-0.5">
+                                    {row.map((emoji, j) => (
+                                        <button
+                                            key={j}
+                                            type="button"
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer text-lg hover:scale-110 transition-transform"
+                                            style={{ background: 'var(--dd-paper)' }}
+                                            onClick={() => insertEmoji(emoji)}
+                                        >
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
                 {/* Attachment */}
                 <label className="p-2 rounded-full cursor-pointer transition-colors flex-shrink-0 wiggle"
                     style={{ color: 'var(--dd-text-secondary)', background: 'var(--dd-paper)' }}

@@ -16,6 +16,7 @@
   /* ── Pastels ── */
   --dd-lavender: #c4b5e0;
   --dd-lavender-soft: #ece6f5;
+  --dd-reply-bar: #e0d6ed; /* darker than lavender-soft, for reply preview distinction */
   --dd-coral: #f4a89a;
   --dd-coral-soft: #fde8e4;
   --dd-sage: #a8c5a0;
@@ -62,6 +63,7 @@
 
   --dd-lavender: #9b8cc4;
   --dd-lavender-soft: rgba(155, 140, 196, 0.15);
+  --dd-reply-bar: rgba(155, 140, 196, 0.28); /* darker than lavender-soft */
   --dd-coral: #d4897c;
   --dd-coral-soft: rgba(212, 137, 124, 0.12);
   --dd-sage: #8aad82;
@@ -103,6 +105,8 @@ body,
   margin: 0;
   padding: 0;
 }
+
+/* Mobile safe-area is applied in App.jsx to the layout wrapper */
 
 body {
   font-family: var(--font-body);

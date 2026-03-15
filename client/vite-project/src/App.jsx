@@ -28,6 +28,7 @@ function App() {
   const [activeConversation, setActiveConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [hasMore, setHasMore] = useState(false);
+  const [otherUserOnline, setOtherUserOnline] = useState(false);
 
   /* ─── Responsive state ─── */
   const [isMobile, setIsMobile] = useState(window.innerWidth < MOBILE_BREAKPOINT);
@@ -68,7 +69,7 @@ function App() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('connect', () => { });
+    socket.on('connect', () => {});
 
     socket.on('message:new', (msg) => {
       setMessages((prev) => [...prev, msg]);
@@ -78,6 +79,29 @@ function App() {
       socket.disconnect();
     };
   }, [socket]);
+
+  /* ─── Presence: online/offline for the other user in active conversation ─── */
+  useEffect(() => {
+    if (!socket || !activeConversation || !user?.id) return;
+    const otherId = activeConversation.participants.find((p) => p._id !== user.id)?._id;
+    const otherIdStr = otherId != null ? String(otherId) : null;
+    setOtherUserOnline(false);
+
+    const onPresence = ({ conversationId, onlineUserIds }) => {
+      if (activeConversation._id !== conversationId || !otherIdStr) return;
+      setOtherUserOnline(onlineUserIds.includes(otherIdStr));
+    };
+    const onPresenceUpdate = ({ userId, online }) => {
+      if (String(userId) === otherIdStr) setOtherUserOnline(online);
+    };
+
+    socket.on('presence', onPresence);
+    socket.on('presence:update', onPresenceUpdate);
+    return () => {
+      socket.off('presence', onPresence);
+      socket.off('presence:update', onPresenceUpdate);
+    };
+  }, [socket, activeConversation?._id, user?.id]);
 
   /* ─── Axios client ─── */
   const authClient = useMemo(() => {
@@ -120,7 +144,10 @@ function App() {
   const openConversation = useCallback(
     async (conversation) => {
       setActiveConversation(conversation);
-      if (isMobile) setShowChat(true);
+      if (isMobile) {
+        setShowChat(true);
+        window.history.pushState({ chatScreen: true, conversationId: conversation._id }, '', window.location.pathname + window.location.search);
+      }
       if (socket) {
         socket.emit('conversation:join', conversation._id);
       }
@@ -130,6 +157,16 @@ function App() {
     },
     [authClient, socket, isMobile]
   );
+
+  /* ─── Mobile: browser back should return to chat list ─── */
+  useEffect(() => {
+    if (!isMobile) return;
+    const onPopState = () => {
+      setShowChat(false);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [isMobile]);
 
   /* ─── Load older messages (pagination) ─── */
   const loadOlderMessages = useCallback(
@@ -187,10 +224,14 @@ function App() {
     [activeConversation, authClient]
   );
 
-  /* ─── Mobile back handler ─── */
+  /* ─── Mobile back handler: use history so browser back goes to chat list ─── */
   const handleBack = useCallback(() => {
-    setShowChat(false);
-  }, []);
+    if (isMobile && window.history.state?.chatScreen) {
+      window.history.back();
+    } else {
+      setShowChat(false);
+    }
+  }, [isMobile]);
 
   /* ─── Logout ─── */
   const handleLogout = useCallback(() => {
@@ -215,9 +256,17 @@ function App() {
   /* ── Mobile layout: show sidebar OR chat ── */
   if (isMobile) {
     return (
-      <div className="h-screen w-screen overflow-hidden" style={{ backgroundColor: 'var(--dd-cream)' }}>
+      <div
+        className="w-screen overflow-hidden flex flex-col"
+        style={{
+          backgroundColor: 'var(--dd-cream)',
+          minHeight: '100dvh',
+          height: '100%',
+          paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)',
+        }}
+      >
         {showChat && activeConversation ? (
-          <div className="h-full w-full flex flex-col slide-in-right">
+          <div className="flex-1 w-full flex flex-col min-h-0 slide-in-right">
             <ChatPanel
               user={user}
               conversation={activeConversation}
@@ -227,10 +276,11 @@ function App() {
               isMobile={true}
               hasMore={hasMore}
               loadOlderMessages={loadOlderMessages}
+              otherUserOnline={otherUserOnline}
             />
           </div>
         ) : (
-          <div className="h-full w-full slide-in-left">
+          <div className="flex-1 w-full min-h-0 slide-in-left">
             <Sidebar
               user={user}
               allUsers={allUsers}
@@ -288,6 +338,7 @@ function App() {
           isMobile={false}
           hasMore={hasMore}
           loadOlderMessages={loadOlderMessages}
+          otherUserOnline={otherUserOnline}
         />
       </section>
     </div>

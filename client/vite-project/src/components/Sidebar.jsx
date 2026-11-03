@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
+import { ChatListSkeleton } from './SkeletonLoader';
 
 /* ── Doodle Avatar ── */
-function DoodleAvatar({ name, size = 42 }) {
+function DoodleAvatar({ name, size = 42, showOnline, isOnline: online }) {
     const palettes = [
         { bg: 'var(--dd-lavender-soft)', border: 'var(--dd-lavender)', color: 'var(--dd-primary)' },
         { bg: 'var(--dd-coral-soft)', border: 'var(--dd-coral)', color: '#c0574a' },
@@ -17,19 +18,32 @@ function DoodleAvatar({ name, size = 42 }) {
         : '?';
 
     return (
-        <div
-            className="flex-shrink-0 rounded-full flex items-center justify-center font-bold doodle-avatar"
-            style={{
-                width: size,
-                height: size,
-                backgroundColor: p.bg,
-                borderColor: p.border,
-                color: p.color,
-                fontSize: size * 0.36,
-                fontFamily: 'var(--font-hand)',
-            }}
-        >
-            {initials}
+        <div className="relative flex-shrink-0">
+            <div
+                className="rounded-full flex items-center justify-center font-bold doodle-avatar"
+                style={{
+                    width: size,
+                    height: size,
+                    backgroundColor: p.bg,
+                    borderColor: p.border,
+                    color: p.color,
+                    fontSize: size * 0.36,
+                    fontFamily: 'var(--font-hand)',
+                }}
+            >
+                {initials}
+            </div>
+            {showOnline && (
+                <div
+                    className="absolute bottom-0 right-0 rounded-full"
+                    style={{
+                        width: size * 0.26,
+                        height: size * 0.26,
+                        backgroundColor: online ? 'var(--dd-sage)' : 'var(--dd-text-muted)',
+                        border: '2px solid var(--dd-sidebar)',
+                    }}
+                />
+            )}
         </div>
     );
 }
@@ -44,6 +58,9 @@ export default function Sidebar({
     onLogout,
     theme,
     toggleTheme,
+    onlineUserIds = [],
+    unreadCounts = {},
+    loading = false,
 }) {
     const [search, setSearch] = useState('');
 
@@ -63,6 +80,20 @@ export default function Sidebar({
             (u) => u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q)
         );
     }, [allUsers, search]);
+
+    /* ── Format last message preview ── */
+    const getLastMessagePreview = (convo) => {
+        if (!convo.lastMessage) return convo.participants.find((p) => p._id !== user.id)?.email || '';
+        const lm = convo.lastMessage;
+        const isOwn = String(lm.sender) === user.id || lm.sender?._id === user.id;
+        let preview = lm.text || '';
+        if (lm.messageType === 'voice_note') preview = '🎤 Voice note';
+        else if (lm.messageType === 'image') preview = '📷 Photo';
+        else if (lm.messageType === 'video') preview = '🎬 Video';
+        else if (lm.messageType === 'audio') preview = '🎵 Audio';
+        if (isOwn) preview = `You: ${preview}`;
+        return preview.slice(0, 40) + (preview.length > 40 ? '…' : '');
+    };
 
     return (
         <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--dd-sidebar)' }}>
@@ -145,10 +176,15 @@ export default function Sidebar({
 
             {/* ─── Lists ─── */}
             <div className="flex-1 overflow-y-auto px-1 py-1">
+                {/* Skeleton while loading */}
+                {loading && conversations.length === 0 && <ChatListSkeleton count={5} />}
+
                 {/* Conversations */}
-                {filteredConversations.map((c) => {
+                {!loading && filteredConversations.map((c) => {
                     const other = c.participants.find((p) => p._id !== user.id) || c.participants[0];
                     const isActive = activeConversation?._id === c._id;
+                    const isOtherOnline = onlineUserIds.includes(other?._id);
+                    const unread = unreadCounts[c._id] || 0;
 
                     return (
                         <div
@@ -156,21 +192,42 @@ export default function Sidebar({
                             className={`convo-item flex items-center gap-3 px-3 py-3 cursor-pointer ${isActive ? 'active' : ''}`}
                             onClick={() => onOpenConversation(c)}
                         >
-                            <DoodleAvatar name={other?.name} size={44} />
+                            <DoodleAvatar name={other?.name} size={44} showOnline isOnline={isOtherOnline} />
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between">
                                     <span className="text-[14px] font-semibold truncate"
                                         style={{ color: isActive ? 'var(--dd-primary)' : 'var(--dd-text)' }}>
                                         {other?.name}
                                     </span>
-                                    <span className="text-[11px] flex-shrink-0 ml-2"
-                                        style={{ color: 'var(--dd-text-muted)', fontFamily: 'var(--font-sketch)' }}>
-                                        {c.updatedAt && new Date(c.updatedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                                    </span>
+                                    <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                                        <span className="text-[11px]"
+                                            style={{ color: 'var(--dd-text-muted)', fontFamily: 'var(--font-sketch)' }}>
+                                            {c.lastMessage?.createdAt
+                                                ? new Date(c.lastMessage.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })
+                                                : c.updatedAt
+                                                    ? new Date(c.updatedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })
+                                                    : ''}
+                                        </span>
+                                        {unread > 0 && (
+                                            <div
+                                                className="flex items-center justify-center rounded-full text-[10px] font-bold"
+                                                style={{
+                                                    minWidth: 18,
+                                                    height: 18,
+                                                    padding: '0 5px',
+                                                    backgroundColor: 'var(--dd-primary)',
+                                                    color: '#fff',
+                                                    fontFamily: 'var(--font-body)',
+                                                }}
+                                            >
+                                                {unread > 99 ? '99+' : unread}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="text-[12px] truncate mt-0.5"
-                                    style={{ color: 'var(--dd-text-muted)' }}>
-                                    {other?.email}
+                                    style={{ color: unread > 0 ? 'var(--dd-text)' : 'var(--dd-text-muted)', fontWeight: unread > 0 ? 600 : 400 }}>
+                                    {getLastMessagePreview(c)}
                                 </div>
                             </div>
                         </div>
@@ -178,7 +235,7 @@ export default function Sidebar({
                 })}
 
                 {/* Users section */}
-                {filteredUsers.length > 0 && (
+                {!loading && filteredUsers.length > 0 && (
                     <div className="px-4 py-2 mt-2 text-[12px] font-bold"
                         style={{
                             fontFamily: 'var(--font-hand)',
@@ -188,25 +245,28 @@ export default function Sidebar({
                         ✦ People
                     </div>
                 )}
-                {filteredUsers.map((u) => (
-                    <div
-                        key={u._id}
-                        className="convo-item flex items-center gap-3 px-3 py-3 cursor-pointer"
-                        onClick={() => onSelectUser(u)}
-                    >
-                        <DoodleAvatar name={u.name} size={44} />
-                        <div className="flex-1 min-w-0">
-                            <div className="text-[14px] font-semibold truncate" style={{ color: 'var(--dd-text)' }}>
-                                {u.name}
-                            </div>
-                            <div className="text-[12px] truncate mt-0.5" style={{ color: 'var(--dd-text-muted)' }}>
-                                {u.email}
+                {!loading && filteredUsers.map((u) => {
+                    const isUserOnline = onlineUserIds.includes(u._id);
+                    return (
+                        <div
+                            key={u._id}
+                            className="convo-item flex items-center gap-3 px-3 py-3 cursor-pointer"
+                            onClick={() => onSelectUser(u)}
+                        >
+                            <DoodleAvatar name={u.name} size={44} showOnline isOnline={isUserOnline} />
+                            <div className="flex-1 min-w-0">
+                                <div className="text-[14px] font-semibold truncate" style={{ color: 'var(--dd-text)' }}>
+                                    {u.name}
+                                </div>
+                                <div className="text-[12px] truncate mt-0.5" style={{ color: 'var(--dd-text-muted)' }}>
+                                    {u.email}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
 
-                {filteredConversations.length === 0 && filteredUsers.length === 0 && (
+                {!loading && filteredConversations.length === 0 && filteredUsers.length === 0 && (
                     <div className="px-4 py-10 text-center"
                         style={{ color: 'var(--dd-text-muted)', fontFamily: 'var(--font-hand)', fontSize: '18px' }}>
                         {search ? 'No matches found 🔍' : 'No chats yet! Start a conversation ✨'}

@@ -18,6 +18,10 @@ if (backupConnection) {
             name: { type: String, required: true },
             email: { type: String, required: true },
             passwordHash: { type: String, required: true },
+            phone: { type: String, default: '' },
+            status: { type: String, default: '' },
+            lastSeen: { type: Date },
+            avatar: { type: String, default: '' },
         },
         { timestamps: true }
     );
@@ -30,6 +34,12 @@ if (backupConnection) {
             _id: mongoose.Schema.Types.ObjectId,
             participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
             lastMessageAt: { type: Date, default: Date.now },
+            lastMessage: {
+                text: String,
+                sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+                messageType: String,
+                createdAt: Date,
+            },
         },
         { timestamps: true }
     );
@@ -45,6 +55,12 @@ if (backupConnection) {
             text: { type: String },
             mediaUrl: { type: String },
             mediaType: { type: String },
+            messageType: { type: String, default: 'text' },
+            status: { type: String, default: 'sent' },
+            replyTo: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
+            forwardedFrom: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
+            deliveredAt: { type: Date },
+            readAt: { type: Date },
         },
         { timestamps: true }
     );

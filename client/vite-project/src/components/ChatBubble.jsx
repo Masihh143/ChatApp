@@ -1,9 +1,10 @@
 import { memo, useRef, useState, useCallback, useEffect } from 'react';
 
 /**
- * ChatBubble — swipe right to reply (mobile); hover dropdown with Reply (desktop). React.memo for performance.
+ * ChatBubble — swipe right to reply (mobile); hover dropdown with Reply + Forward (desktop).
+ * Supports: message status indicators, replyTo reference, forwarded badge, voice note player.
  */
-const ChatBubble = memo(function ChatBubble({ message, isOwn, onReply, isMobile }) {
+const ChatBubble = memo(function ChatBubble({ message, isOwn, onReply, onForward, isMobile, otherUserName }) {
     const bubbleColors = isOwn
         ? { bg: 'var(--dd-lavender-soft)', border: 'var(--dd-lavender)', text: 'var(--dd-text)', timeColor: 'var(--dd-primary-light)' }
         : { bg: 'var(--dd-card)', border: 'var(--dd-border-sketch)', text: 'var(--dd-text)', timeColor: 'var(--dd-text-muted)' };
@@ -37,7 +38,6 @@ const ChatBubble = memo(function ChatBubble({ message, isOwn, onReply, isMobile 
         const y = e.touches[0].clientY;
         const deltaX = x - touchStartX.current;
         const deltaY = y - touchStartY.current;
-        // Only track horizontal swipe (right = positive). Cap at 80px for visual feedback.
         if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX > 0) {
             setSwipeOffset(Math.min(deltaX, 80));
         } else {
@@ -52,6 +52,83 @@ const ChatBubble = memo(function ChatBubble({ message, isOwn, onReply, isMobile 
         }
         setSwipeOffset(0);
     }, [swipeOffset, onReply, message]);
+
+    /* ── Status indicator ── */
+    const renderStatus = () => {
+        if (!isOwn) return null;
+        const status = message.status || 'sent';
+        switch (status) {
+            case 'read':
+                return <span className="text-[11px]" style={{ color: 'var(--dd-primary)' }}>✓✓</span>;
+            case 'delivered':
+                return <span className="text-[11px]" style={{ color: 'var(--dd-text-muted)' }}>✓✓</span>;
+            case 'sent':
+            default:
+                return <span className="text-[11px]" style={{ color: 'var(--dd-text-muted)' }}>✓</span>;
+        }
+    };
+
+    /* ── Quoted reply block ── */
+    const renderReplyBlock = () => {
+        // New style: use populated replyTo object
+        if (message.replyTo && typeof message.replyTo === 'object') {
+            const rt = message.replyTo;
+            const replyName = rt.senderInfo?.name || (rt.sender === message.sender?._id ? 'You' : (otherUserName || 'Friend'));
+            const snippet = rt.text || (rt.mediaUrl ? `📎 ${rt.messageType || 'Media'}` : '📎 Media');
+            return (
+                <div
+                    className="rounded-lg px-2 py-1.5 mb-1.5 border-l-2"
+                    style={{
+                        backgroundColor: 'var(--dd-reply-bar)',
+                        borderLeftColor: 'var(--dd-lavender)',
+                        fontFamily: 'var(--font-sketch)',
+                        fontSize: '12px',
+                        color: 'var(--dd-text-secondary)',
+                    }}
+                >
+                    <div className="font-bold text-[11px]" style={{ color: 'var(--dd-primary)' }}>{replyName}</div>
+                    <span className="whitespace-pre-wrap break-words">{snippet.slice(0, 80)}{snippet.length > 80 ? '…' : ''}</span>
+                </div>
+            );
+        }
+
+        // Legacy: parse from text (backward compat)
+        if (message.text?.startsWith('↩') && message.text?.includes('\n\n')) {
+            const [replyLine, ...rest] = message.text.split('\n\n');
+            return (
+                <>
+                    <div
+                        className="rounded-lg px-2 py-1.5 mb-1.5 border-l-2"
+                        style={{
+                            backgroundColor: 'var(--dd-reply-bar)',
+                            borderLeftColor: 'var(--dd-lavender)',
+                            fontFamily: 'var(--font-sketch)',
+                            fontSize: '12px',
+                            color: 'var(--dd-text-secondary)',
+                        }}
+                    >
+                        <span className="whitespace-pre-wrap break-words">{replyLine}</span>
+                    </div>
+                    {rest.join('\n\n') ? <span className="whitespace-pre-wrap break-words">{rest.join('\n\n')}</span> : null}
+                </>
+            );
+        }
+        return null;
+    };
+
+    /* ── Get main text (strip legacy reply prefix) ── */
+    const getMainText = () => {
+        if (message.replyTo && typeof message.replyTo === 'object') {
+            return message.text; // text is clean when using replyTo reference
+        }
+        if (message.text?.startsWith('↩') && message.text?.includes('\n\n')) {
+            const parts = message.text.split('\n\n');
+            return parts.slice(1).join('\n\n');
+        }
+        return message.text;
+    };
+
+    const mainText = getMainText();
 
     return (
         <div
@@ -89,8 +166,43 @@ const ChatBubble = memo(function ChatBubble({ message, isOwn, onReply, isMobile 
                     </div>
                 )}
 
-                {/* Media */}
-                {message.mediaUrl && (
+                {/* Forwarded badge */}
+                {message.forwardedFrom && (
+                    <div
+                        className="flex items-center gap-1 mb-1 text-[11px]"
+                        style={{ color: 'var(--dd-text-muted)', fontFamily: 'var(--font-sketch)' }}
+                    >
+                        <span>↗</span>
+                        <span>Forwarded</span>
+                    </div>
+                )}
+
+                {/* Reply block */}
+                {renderReplyBlock()}
+
+                {/* Voice note player */}
+                {(message.messageType === 'voice_note' || message.messageType === 'audio') && message.mediaUrl && (
+                    <div className="mb-1.5">
+                        <div
+                            className="flex items-center gap-2 px-2 py-1.5 rounded-xl"
+                            style={{
+                                backgroundColor: isOwn ? 'rgba(124,107,171,0.15)' : 'var(--dd-hover)',
+                                border: `1px dashed ${isOwn ? 'var(--dd-lavender)' : 'var(--dd-border)'}`,
+                            }}
+                        >
+                            <span className="text-lg">🎤</span>
+                            <audio
+                                src={message.mediaUrl}
+                                controls
+                                className="flex-1"
+                                style={{ height: 32, maxWidth: '220px' }}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Media (image/video — not voice) */}
+                {message.mediaUrl && message.messageType !== 'voice_note' && message.messageType !== 'audio' && (
                     <div className="mb-1.5">
                         {message.mediaType === 'video' ? (
                             <video
@@ -110,36 +222,29 @@ const ChatBubble = memo(function ChatBubble({ message, isOwn, onReply, isMobile 
                     </div>
                 )}
 
-                {/* Text + time + ⌄ + ✓✓ in one row; quoted reply (if any) has darker bg */}
+                {/* Text + time + status */}
                 <div className="flex items-end gap-2">
-                    {message.text && (() => {
-                        const isReply = message.text.startsWith('↩') && message.text.includes('\n\n');
-                        const [replyLine, ...rest] = isReply ? message.text.split('\n\n') : [];
-                        const mainText = isReply ? rest.join('\n\n') : message.text;
-                        return (
-                            <div className="flex-1 min-w-0">
-                                {isReply && replyLine && (
-                                    <div
-                                        className="rounded-lg px-2 py-1.5 mb-1.5 border-l-2"
-                                        style={{
-                                            backgroundColor: 'var(--dd-reply-bar)',
-                                            borderLeftColor: 'var(--dd-lavender)',
-                                            fontFamily: 'var(--font-sketch)',
-                                            fontSize: '12px',
-                                            color: 'var(--dd-text-secondary)',
-                                        }}
-                                    >
-                                        <span className="whitespace-pre-wrap break-words">{replyLine}</span>
-                                    </div>
-                                )}
-                                {mainText ? (
-                                    <span className="whitespace-pre-wrap break-words">{mainText}</span>
-                                ) : null}
-                            </div>
-                        );
-                    })()}
+                    {mainText && !message.text?.startsWith('↩') && (
+                        <div className="flex-1 min-w-0">
+                            <span className="whitespace-pre-wrap break-words">{mainText}</span>
+                        </div>
+                    )}
+                    {/* Legacy text with parsed reply */}
+                    {!mainText && !message.text?.startsWith('↩') && !message.mediaUrl && (
+                        <div className="flex-1 min-w-0" />
+                    )}
+                    {message.text?.startsWith('↩') && message.text?.includes('\n\n') && !(message.replyTo && typeof message.replyTo === 'object') && (
+                        <div className="flex-1 min-w-0" />
+                    )}
+                    {/* Clean text when using replyTo */}
+                    {mainText && message.replyTo && typeof message.replyTo === 'object' && (
+                        <div className="flex-1 min-w-0">
+                            <span className="whitespace-pre-wrap break-words">{mainText}</span>
+                        </div>
+                    )}
+
                     <span className="flex-shrink-0 flex items-center gap-1 ml-auto self-end">
-                        {!isMobile && onReply && (
+                        {!isMobile && (onReply || onForward) && (
                             <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); setDropdownOpen((o) => !o); }}
@@ -158,15 +263,14 @@ const ChatBubble = memo(function ChatBubble({ message, isOwn, onReply, isMobile 
                         <span className="text-[10px]" style={{ color: bubbleColors.timeColor, fontFamily: 'var(--font-sketch)' }}>
                             {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                        {isOwn && (
-                            <span className="text-[11px]" style={{ color: 'var(--dd-sage)' }}>✓✓</span>
-                        )}
+                        {renderStatus()}
                     </span>
                 </div>
-                {/* Desktop: dropdown menu below bubble, right-aligned */}
-                {!isMobile && onReply && dropdownOpen && (
+
+                {/* Desktop: dropdown menu */}
+                {!isMobile && (onReply || onForward) && dropdownOpen && (
                     <div
-                        className="absolute z-20 py-1 rounded-lg min-w-[100px]"
+                        className="absolute z-20 py-1 rounded-lg min-w-[120px]"
                         style={{
                             top: '100%',
                             marginTop: 2,
@@ -177,15 +281,32 @@ const ChatBubble = memo(function ChatBubble({ message, isOwn, onReply, isMobile 
                             boxShadow: 'var(--dd-shadow-md)',
                         }}
                     >
-                        <button
-                            type="button"
-                            className="w-full px-3 py-2 text-left text-[13px] flex items-center gap-2 cursor-pointer transition-colors rounded-md"
-                            style={{ fontFamily: 'var(--font-sketch)', color: 'var(--dd-primary)' }}
-                            onClick={() => { onReply(message); setDropdownOpen(false); }}
-                        >
-                            <span>↩</span>
-                            <span>Reply</span>
-                        </button>
+                        {onReply && (
+                            <button
+                                type="button"
+                                className="w-full px-3 py-2 text-left text-[13px] flex items-center gap-2 cursor-pointer transition-colors rounded-md"
+                                style={{ fontFamily: 'var(--font-sketch)', color: 'var(--dd-primary)' }}
+                                onClick={() => { onReply(message); setDropdownOpen(false); }}
+                                onMouseOver={(e) => e.currentTarget.style.background = 'var(--dd-hover)'}
+                                onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                                <span>↩</span>
+                                <span>Reply</span>
+                            </button>
+                        )}
+                        {onForward && (
+                            <button
+                                type="button"
+                                className="w-full px-3 py-2 text-left text-[13px] flex items-center gap-2 cursor-pointer transition-colors rounded-md"
+                                style={{ fontFamily: 'var(--font-sketch)', color: 'var(--dd-sky)' }}
+                                onClick={() => { onForward(message); setDropdownOpen(false); }}
+                                onMouseOver={(e) => e.currentTarget.style.background = 'var(--dd-hover)'}
+                                onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                            >
+                                <span>↗</span>
+                                <span>Forward</span>
+                            </button>
+                        )}
                     </div>
                 )}
             </div>

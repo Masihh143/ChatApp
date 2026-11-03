@@ -14,7 +14,29 @@ const messageSchema = new mongoose.Schema(
     },
     text: { type: String },
     mediaUrl: { type: String },
-    mediaType: { type: String }
+    mediaType: { type: String },
+    messageType: {
+      type: String,
+      enum: ['text', 'image', 'video', 'audio', 'voice_note'],
+      default: 'text'
+    },
+    status: {
+      type: String,
+      enum: ['sent', 'delivered', 'read'],
+      default: 'sent'
+    },
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Message',
+      default: null
+    },
+    forwardedFrom: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Message',
+      default: null
+    },
+    deliveredAt: { type: Date },
+    readAt: { type: Date }
   },
   { timestamps: true }
 );

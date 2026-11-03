@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import ChatBubble from './ChatBubble';
+import { MessageSkeleton } from './SkeletonLoader';
+import VoiceRecorder from './VoiceRecorder';
 
 /* ── Common emojis for picker (WhatsApp-style) ── */
 const EMOJI_CATEGORIES = [
@@ -9,7 +11,7 @@ const EMOJI_CATEGORIES = [
 ];
 
 /* ── Doodle Avatar ── */
-function DoodleAvatar({ name, size = 38 }) {
+function DoodleAvatar({ name, size = 38, showOnline, isOnline: online }) {
     const palettes = [
         { bg: 'var(--dd-lavender-soft)', border: 'var(--dd-lavender)', color: 'var(--dd-primary)' },
         { bg: 'var(--dd-coral-soft)', border: 'var(--dd-coral)', color: '#c0574a' },
@@ -25,17 +27,65 @@ function DoodleAvatar({ name, size = 38 }) {
         : '?';
 
     return (
-        <div
-            className="flex-shrink-0 rounded-full flex items-center justify-center font-bold doodle-avatar"
-            style={{
-                width: size, height: size,
-                backgroundColor: p.bg, borderColor: p.border, color: p.color,
-                fontSize: size * 0.36, fontFamily: 'var(--font-hand)',
-            }}
-        >
-            {initials}
+        <div className="relative flex-shrink-0">
+            <div
+                className="rounded-full flex items-center justify-center font-bold doodle-avatar"
+                style={{
+                    width: size, height: size,
+                    backgroundColor: p.bg, borderColor: p.border, color: p.color,
+                    fontSize: size * 0.36, fontFamily: 'var(--font-hand)',
+                }}
+            >
+                {initials}
+            </div>
+            {showOnline && (
+                <div
+                    className="absolute bottom-0 right-0 rounded-full"
+                    style={{
+                        width: size * 0.28,
+                        height: size * 0.28,
+                        backgroundColor: online ? 'var(--dd-sage)' : 'var(--dd-text-muted)',
+                        border: '2px solid var(--dd-card)',
+                    }}
+                />
+            )}
         </div>
     );
+}
+
+/* ── Typing indicator ── */
+function TypingIndicator() {
+    return (
+        <div className="flex justify-start mb-2">
+            <div
+                className="rounded-2xl px-4 py-2.5 flex items-center gap-1.5"
+                style={{
+                    backgroundColor: 'var(--dd-card)',
+                    border: '1.5px dashed var(--dd-border-sketch)',
+                    borderRadius: '18px 18px 18px 6px',
+                    boxShadow: 'var(--dd-shadow-sm)',
+                }}
+            >
+                <span className="typing-dot" style={{ animationDelay: '0s' }} />
+                <span className="typing-dot" style={{ animationDelay: '0.15s' }} />
+                <span className="typing-dot" style={{ animationDelay: '0.3s' }} />
+            </div>
+        </div>
+    );
+}
+
+/* ── Format last seen ── */
+function formatLastSeen(dateStr) {
+    if (!dateStr) return 'offline';
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = now - d;
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
 export default function ChatPanel({
@@ -48,6 +98,12 @@ export default function ChatPanel({
     hasMore,
     loadOlderMessages,
     otherUserOnline = false,
+    otherUserLastSeen = null,
+    isOtherTyping = false,
+    onForwardMessage,
+    conversations = [],
+    loading = false,
+    onCallStart,
 }) {
     const [text, setText] = useState('');
     const [file, setFile] = useState(null);
@@ -56,6 +112,8 @@ export default function ChatPanel({
     const [replyingTo, setReplyingTo] = useState(null);
     const [emojiOpen, setEmojiOpen] = useState(false);
     const emojiPickerRef = useRef(null);
+    const [forwardModal, setForwardModal] = useState(null); // message to forward
+    const typingTimeoutRef = useRef(null);
 
     /* ── New message indicator ── */
     const messagesEndRef = useRef(null);
@@ -115,6 +173,17 @@ export default function ChatPanel({
         setEmojiOpen(false);
     }, []);
 
+    const handleForward = useCallback((message) => {
+        setForwardModal(message);
+    }, []);
+
+    const handleForwardTo = useCallback((targetConversationId) => {
+        if (forwardModal && onForwardMessage) {
+            onForwardMessage(forwardModal._id, targetConversationId);
+        }
+        setForwardModal(null);
+    }, [forwardModal, onForwardMessage]);
+
     /* Close emoji picker on outside click */
     useEffect(() => {
         if (!emojiOpen) return;
@@ -128,18 +197,20 @@ export default function ChatPanel({
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!text.trim() && !file) return;
-        let finalText = text.trim();
-        if (replyingTo) {
-            const name = replyingTo.sender?._id === user.id ? 'You' : (otherUser?.name || 'Friend');
-            const snippet = (replyingTo.text || '📎 Media').slice(0, 50) + ((replyingTo.text && replyingTo.text.length > 50) ? '…' : '');
-            finalText = `↩ ${name}: ${snippet}\n\n${finalText}`.trim();
-            setReplyingTo(null);
-        }
-        onSendMessage(finalText, file);
+        const replyToId = replyingTo?._id || null;
+        onSendMessage(text.trim(), file, replyToId);
         setText('');
         setFile(null);
+        setReplyingTo(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
+
+    const handleVoiceNote = useCallback((blob, duration) => {
+        if (onSendMessage) {
+            const file = new File([blob], `voice_note_${Date.now()}.webm`, { type: 'audio/webm;codecs=opus' });
+            onSendMessage('', file, null, 'voice_note');
+        }
+    }, [onSendMessage]);
 
     const insertEmoji = (emoji) => {
         setText((prev) => prev + emoji);
@@ -189,7 +260,7 @@ export default function ChatPanel({
                         </svg>
                     </button>
                 )}
-                <DoodleAvatar name={otherUser?.name} size={38} />
+                <DoodleAvatar name={otherUser?.name} size={38} showOnline isOnline={otherUserOnline} />
                 <div className="flex-1 min-w-0">
                     <div className="text-[16px] font-bold truncate"
                         style={{ fontFamily: 'var(--font-hand)', color: 'var(--dd-text)' }}>
@@ -197,10 +268,46 @@ export default function ChatPanel({
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px]"
                         style={{ color: otherUserOnline ? 'var(--dd-sage)' : 'var(--dd-text-muted)', fontFamily: 'var(--font-sketch)' }}>
-                        <span className="inline-block w-1.5 h-1.5 rounded-full"
-                            style={{ backgroundColor: otherUserOnline ? 'var(--dd-sage)' : 'var(--dd-text-muted)' }} />
-                        {otherUserOnline ? 'online' : 'offline'}
+                        {isOtherTyping ? (
+                            <span style={{ color: 'var(--dd-primary)' }}>typing...</span>
+                        ) : otherUserOnline ? (
+                            'online'
+                        ) : (
+                            `last seen ${formatLastSeen(otherUserLastSeen)}`
+                        )}
                     </div>
+                </div>
+
+                {/* Call buttons */}
+                <div className="flex items-center gap-1">
+                    {onCallStart && (
+                        <>
+                            <button
+                                onClick={() => onCallStart('voice')}
+                                className="p-2 rounded-full cursor-pointer transition-colors wiggle"
+                                style={{ color: 'var(--dd-text-secondary)', background: 'var(--dd-paper)' }}
+                                onMouseOver={(e) => { e.currentTarget.style.color = 'var(--dd-sage)'; e.currentTarget.style.background = 'var(--dd-sage-soft)'; }}
+                                onMouseOut={(e) => { e.currentTarget.style.color = 'var(--dd-text-secondary)'; e.currentTarget.style.background = 'var(--dd-paper)'; }}
+                                title="Voice call"
+                            >
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                                    <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z" />
+                                </svg>
+                            </button>
+                            <button
+                                onClick={() => onCallStart('screen')}
+                                className="p-2 rounded-full cursor-pointer transition-colors wiggle"
+                                style={{ color: 'var(--dd-text-secondary)', background: 'var(--dd-paper)' }}
+                                onMouseOver={(e) => { e.currentTarget.style.color = 'var(--dd-sky)'; e.currentTarget.style.background = 'var(--dd-sky-soft)'; }}
+                                onMouseOut={(e) => { e.currentTarget.style.color = 'var(--dd-text-secondary)'; e.currentTarget.style.background = 'var(--dd-paper)'; }}
+                                title="Screen share"
+                            >
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                                    <path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z" />
+                                </svg>
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -210,8 +317,11 @@ export default function ChatPanel({
                 onScroll={handleScroll}
                 className="flex-1 overflow-y-auto px-[4%] md:px-[10%] py-3 doodle-bg"
             >
+                {/* Skeleton loader */}
+                {loading && messages.length === 0 && <MessageSkeleton count={6} />}
+
                 {/* Load older messages button */}
-                {hasMore && (
+                {hasMore && !loading && (
                     <div className="flex justify-center py-3">
                         <button
                             onClick={handleLoadOlder}
@@ -230,8 +340,22 @@ export default function ChatPanel({
                 )}
                 {messages.map((m) => {
                     const own = m.sender._id === user.id;
-                    return <ChatBubble key={m._id} message={m} isOwn={own} onReply={handleReply} isMobile={isMobile} />;
+                    return (
+                        <ChatBubble
+                            key={m._id}
+                            message={m}
+                            isOwn={own}
+                            onReply={handleReply}
+                            onForward={onForwardMessage ? handleForward : undefined}
+                            isMobile={isMobile}
+                            otherUserName={otherUser?.name}
+                        />
+                    );
                 })}
+
+                {/* Typing indicator */}
+                {isOtherTyping && <TypingIndicator />}
+
                 <div ref={messagesEndRef} />
             </div>
 
@@ -252,6 +376,51 @@ export default function ChatPanel({
                     <span className="font-bold">{newMsgCount} new</span>
                     <span>↓</span>
                 </button>
+            )}
+
+            {/* ═══ Forward Modal ═══ */}
+            {forwardModal && (
+                <div className="fixed inset-0 z-40 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+                    <div
+                        className="sketch-card p-4 w-full max-w-[340px] mx-4 max-h-[60vh] flex flex-col"
+                        style={{ backgroundColor: 'var(--dd-card)' }}
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-lg font-bold" style={{ fontFamily: 'var(--font-hand)', color: 'var(--dd-primary)' }}>
+                                Forward to...
+                            </h3>
+                            <button
+                                onClick={() => setForwardModal(null)}
+                                className="p-1 rounded-full cursor-pointer"
+                                style={{ color: 'var(--dd-text-muted)' }}
+                            >
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg>
+                            </button>
+                        </div>
+                        <div className="overflow-y-auto flex-1">
+                            {conversations.filter((c) => c._id !== conversation?._id).map((c) => {
+                                const other = c.participants.find((p) => p._id !== user.id) || c.participants[0];
+                                return (
+                                    <div
+                                        key={c._id}
+                                        className="convo-item flex items-center gap-3 px-3 py-2.5 cursor-pointer"
+                                        onClick={() => handleForwardTo(c._id)}
+                                    >
+                                        <DoodleAvatar name={other?.name} size={36} />
+                                        <span className="text-[14px] font-semibold truncate" style={{ color: 'var(--dd-text)' }}>
+                                            {other?.name}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                            {conversations.filter((c) => c._id !== conversation?._id).length === 0 && (
+                                <p className="text-center py-4" style={{ color: 'var(--dd-text-muted)', fontFamily: 'var(--font-sketch)' }}>
+                                    No other conversations
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* ═══ Reply preview bar ═══ */}
@@ -376,11 +545,17 @@ export default function ChatPanel({
                     <input
                         ref={fileInputRef}
                         type="file"
-                        accept="image/*,video/*"
+                        accept="image/*,video/*,audio/*"
                         onChange={(e) => setFile(e.target.files?.[0] || null)}
                         className="hidden"
                     />
                 </label>
+
+                {/* Voice recorder */}
+                <VoiceRecorder
+                    onRecordingComplete={handleVoiceNote}
+                    disabled={Boolean(text.trim() || file)}
+                />
 
                 {/* Text input */}
                 <input

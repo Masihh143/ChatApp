@@ -7,19 +7,28 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import { Server as SocketIOServer } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
 import './config/db.js';
-import './config/backupQueue.js'; // Initialize backup queue on startup
+import './config/backupQueue.js';
+import redis, { createRedisConnection } from './config/redis.js';
 import authRouter from './routes/auth.js';
 import conversationRouter from './routes/conversations.js';
 import messageRouter from './routes/messages.js';
 import usersRouter from './routes/users.js';
 import { verifySocketToken } from './config/token.js';
+import { rateLimitAPI } from './middleware/rateLimiter.js';
+import { startEventWorkers } from './events/eventBus.js';
+import {
+  registerPresenceHandlers,
+  setOnline,
+  setOffline,
+  isOnline,
+  getLastSeen,
+} from './services/presence/presenceService.js';
+import { registerRTCHandlers } from './services/rtc/rtcService.js';
 import Conversation from './models/Conversation.js';
 
 dotenv.config();
-
-/* ─── Presence: "logged in = online". userId -> Set of socketIds; user is online while they have an active socket (app open, logged in). ─── */
-const connectedUsers = new Map();
 
 const app = express();
 const server = http.createServer(app);
@@ -37,10 +46,26 @@ const io = new SocketIOServer(server, {
   }
 });
 
+/* ── Socket.IO Redis Adapter for horizontal scaling ── */
+try {
+  const pubClient = createRedisConnection();
+  const subClient = pubClient.duplicate();
+  io.adapter(createAdapter(pubClient, subClient));
+  // eslint-disable-next-line no-console
+  console.log('[Socket.IO] Redis adapter attached');
+} catch (err) {
+  // eslint-disable-next-line no-console
+  console.warn('[Socket.IO] Redis adapter failed, using in-memory:', err.message);
+}
+
+/* ── Start BullMQ event workers ── */
+startEventWorkers(io);
+
 // Middleware
 app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
+app.use(rateLimitAPI);
 
 // API Routes
 app.use('/api/auth', authRouter);
@@ -50,7 +75,7 @@ app.use('/api/messages', messageRouter(io));
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Chat server running' });
+  res.json({ status: 'ok', message: 'Chat server running', services: ['auth', 'messaging', 'media', 'presence', 'notification', 'rtc'] });
 });
 
 // Serve frontend build in production if it exists
@@ -76,18 +101,17 @@ if (existsSync(clientDistDir)) {
 // Socket.io
 io.use(verifySocketToken);
 
-// Online = user has at least one active socket (logged in, app open). No need for them to be in any conversation.
-function isUserOnline(userId) {
-  const set = connectedUsers.get(String(userId));
-  return set != null && set.size > 0;
-}
-
 io.on('connection', (socket) => {
   const userId = String(socket.userId);
   socket.join(userId);
-  if (!connectedUsers.has(userId)) connectedUsers.set(userId, new Set());
-  connectedUsers.get(userId).add(socket.id);
-  // User is now "logged in" (online). Notify their conversation rooms so others see them online.
+
+  // Register presence handlers (online, heartbeat, typing)
+  registerPresenceHandlers(io, socket);
+
+  // Register WebRTC signaling handlers
+  registerRTCHandlers(io, socket);
+
+  // Join all user's conversation rooms + notify others
   Conversation.find({ participants: userId }, '_id participants')
     .then((convos) => {
       socket.conversationIds = convos.map((c) => c._id.toString());
@@ -96,33 +120,44 @@ io.on('connection', (socket) => {
         io.to(`conversation:${c._id}`).emit('presence:update', { userId, online: true });
       });
     })
-    .catch(() => {});
+    .catch(() => { });
 
-  socket.on('conversation:join', (conversationId) => {
+  socket.on('conversation:join', async (conversationId) => {
     const cid = String(conversationId);
     socket.join(`conversation:${cid}`);
-    // Send who is online in this conversation: anyone logged in (has socket), regardless of whether they have this chat open.
-    Conversation.findById(cid)
-      .select('participants')
-      .then((convo) => {
-        if (!convo) return;
-        const participantIds = convo.participants.map((p) => p.toString());
-        const onlineUserIds = participantIds.filter((id) => isUserOnline(id));
-        socket.emit('presence', { conversationId: cid, onlineUserIds });
-      })
-      .catch(() => {});
+    // Send who is online in this conversation
+    try {
+      const convo = await Conversation.findById(cid).select('participants').lean();
+      if (!convo) return;
+      const participantIds = convo.participants.map((p) => p.toString());
+      const onlineChecks = await Promise.all(
+        participantIds.map(async (id) => ({
+          id,
+          online: await isOnline(id),
+        }))
+      );
+      const onlineUserIds = onlineChecks.filter((u) => u.online).map((u) => u.id);
+
+      // Also get lastSeen for offline users
+      const lastSeenData = {};
+      for (const p of onlineChecks) {
+        if (!p.online) {
+          lastSeenData[p.id] = await getLastSeen(p.id);
+        }
+      }
+
+      socket.emit('presence', { conversationId: cid, onlineUserIds, lastSeenData });
+    } catch (err) {
+      // ignore
+    }
   });
 
   socket.on('disconnect', () => {
-    connectedUsers.get(userId)?.delete(socket.id);
-    if (connectedUsers.get(userId)?.size === 0) {
-      connectedUsers.delete(userId);
-      // User is now offline (logged out or closed app). Notify their conversation rooms.
-      const cids = socket.conversationIds || [];
-      cids.forEach((cid) => {
-        io.to(`conversation:${cid}`).emit('presence:update', { userId, online: false });
-      });
-    }
+    setOffline(userId);
+    const cids = socket.conversationIds || [];
+    cids.forEach((cid) => {
+      io.to(`conversation:${cid}`).emit('presence:update', { userId, online: false });
+    });
   });
 });
 
@@ -132,5 +167,3 @@ server.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`Server listening on port ${PORT}`);
 });
-
-

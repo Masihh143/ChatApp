@@ -16,7 +16,8 @@
   /* ── Pastels ── */
   --dd-lavender: #c4b5e0;
   --dd-lavender-soft: #ece6f5;
-  --dd-reply-bar: #e0d6ed; /* darker than lavender-soft, for reply preview distinction */
+  --dd-reply-bar: #e0d6ed;
+  /* darker than lavender-soft, for reply preview distinction */
   --dd-coral: #f4a89a;
   --dd-coral-soft: #fde8e4;
   --dd-sage: #a8c5a0;
@@ -63,7 +64,8 @@
 
   --dd-lavender: #9b8cc4;
   --dd-lavender-soft: rgba(155, 140, 196, 0.15);
-  --dd-reply-bar: rgba(155, 140, 196, 0.28); /* darker than lavender-soft */
+  --dd-reply-bar: rgba(155, 140, 196, 0.28);
+  /* darker than lavender-soft */
   --dd-coral: #d4897c;
   --dd-coral-soft: rgba(212, 137, 124, 0.12);
   --dd-sage: #8aad82;
@@ -318,4 +320,141 @@ textarea:focus {
   height: 12px;
   background: url("data:image/svg+xml,%3Csvg width='40' height='12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 12 Q10 0 20 12 Q30 0 40 12' fill='none' stroke='%23e6ddd2' stroke-width='1.5'/%3E%3C/svg%3E") repeat-x;
   pointer-events: none;
+}
+
+/* ═══ SKELETON LOADER ═══ */
+.skeleton-pulse {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes shimmer {
+
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ═══ TYPING INDICATOR ═══ */
+.typing-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--dd-text-muted);
+  animation: typing-bounce 1.2s ease-in-out infinite;
+}
+
+@keyframes typing-bounce {
+
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+
+  30% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+/* ═══ CALL SCREEN ═══ */
+@keyframes call-ring {
+
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    box-shadow: 0 0 0 0 rgba(168, 197, 160, 0.4);
+  }
+
+  25% {
+    transform: scale(1.05) rotate(-5deg);
+  }
+
+  50% {
+    box-shadow: 0 0 0 12px rgba(168, 197, 160, 0);
+  }
+
+  75% {
+    transform: scale(1.05) rotate(5deg);
+  }
+}
+
+/* ═══ VOICE RECORDING ═══ */
+@keyframes recording-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes recording-dot {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+}
+
+/* ═══ UNREAD BADGE ═══ */
+.unread-badge {
+  animation: badge-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes badge-pop {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ═══ CALL POPUP ═══ */
+.call-popup-slide {
+  animation: call-popup-slide-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes call-popup-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

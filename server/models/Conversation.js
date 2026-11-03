@@ -9,7 +9,13 @@ const conversationSchema = new mongoose.Schema(
         required: true
       }
     ],
-    lastMessageAt: { type: Date, default: Date.now }
+    lastMessageAt: { type: Date, default: Date.now },
+    lastMessage: {
+      text: String,
+      sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      messageType: String,
+      createdAt: Date
+    }
   },
   { timestamps: true }
 );

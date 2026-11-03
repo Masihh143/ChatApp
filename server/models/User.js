@@ -5,7 +5,11 @@ const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    passwordHash: { type: String, required: true }
+    passwordHash: { type: String, required: true },
+    phone: { type: String, default: '' },
+    status: { type: String, default: 'Hey there! I am using ChatApp' },
+    lastSeen: { type: Date, default: Date.now },
+    avatar: { type: String, default: '' }
   },
   { timestamps: true }
 );
@@ -22,5 +26,3 @@ userSchema.statics.hashPassword = async function hashPassword(password) {
 const User = mongoose.model('User', userSchema);
 
 export default User;
-
-

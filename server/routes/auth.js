@@ -2,10 +2,11 @@ import express from 'express';
 import User from '../models/User.js';
 import { signToken } from '../config/token.js';
 import { enqueueBackup } from '../config/backupQueue.js';
+import { rateLimitAuth } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
-router.post('/register', async (req, res) => {
+router.post('/register', rateLimitAuth, async (req, res) => {
   try {
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
@@ -36,7 +37,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', rateLimitAuth, async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });

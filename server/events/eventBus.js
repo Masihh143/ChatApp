@@ -92,7 +92,7 @@ export function startEventWorkers(io) {
                 }
             }
         },
-        { connection: workerConnection }
+        { connection: workerConnection, stalledInterval: 120000 }
     );
 
     /* ── Notification events worker ── */
@@ -105,7 +105,7 @@ export function startEventWorkers(io) {
                 io.to(userId).emit('notification:new', data);
             }
         },
-        { connection: createRedisConnection() }
+        { connection: createRedisConnection(), stalledInterval: 120000 }
     );
 
     /* ── Presence events worker ── */
@@ -114,7 +114,7 @@ export function startEventWorkers(io) {
         async (job) => {
             // Presence events are handled directly via socket — this is for logging/analytics
         },
-        { connection: createRedisConnection() }
+        { connection: createRedisConnection(), stalledInterval: 120000 }
     );
 
     messageWorker.on('failed', (job, err) => {

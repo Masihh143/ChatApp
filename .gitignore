@@ -1,0 +1,4 @@
+# Local/project-excluded items
+feature/
+.claude/
+*.txt

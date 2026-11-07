@@ -7,6 +7,9 @@ import AuthScreen from './components/AuthScreen';
 import Sidebar from './components/Sidebar';
 import ChatPanel from './components/ChatPanel';
 import CallScreen from './components/CallScreen';
+import PersonaChat from './components/PersonaChat';
+import AddPersona from './components/AddPersona';
+import { personaApi } from './lib/personaApi';
 
 // In dev, you can set VITE_API_BASE (e.g. http://localhost:5000).
 // In production (Render single service), use same-origin by default.
@@ -25,6 +28,11 @@ function App() {
   /* ─── Auth state ─── */
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
+
+  /* ─── Persona state ─── */
+  const [personas, setPersonas] = useState([]);
+  const [activePersona, setActivePersona] = useState(null);
+  const [showAddPersona, setShowAddPersona] = useState(false);
 
   /* ─── Chat state ─── */
   const [conversations, setConversations] = useState([]);
@@ -319,16 +327,60 @@ function App() {
     setAllUsers(res.data);
   }, [authClient]);
 
+  const loadPersonas = useCallback(async () => {
+    try {
+      const res = await personaApi.list(authClient);
+      setPersonas(res.data || []);
+    } catch {
+      // Persona backend may be unconfigured (no Gemini/Qdrant) — leave empty.
+    }
+  }, [authClient]);
+
+  /* ── Open a persona chat (clears the normal active conversation) ── */
+  const openPersona = useCallback((persona) => {
+    setActiveConversation(null);
+    setActivePersona(persona);
+    setShowAddPersona(false);
+    if (isMobile) {
+      setShowChat(true);
+      window.history.pushState({ personaScreen: true, personaId: persona._id }, '', window.location.pathname + window.location.search);
+    }
+  }, [isMobile]);
+
+  /* ── Leave persona chat (mobile back) ── */
+  const closePersona = useCallback(() => {
+    setActivePersona(null);
+    if (isMobile && window.history.state?.personaScreen) {
+      window.history.back();
+    } else {
+      setShowChat(false);
+    }
+  }, [isMobile]);
+
+  /* ── Delete a persona + everything under it (cascade) ── */
+  const deletePersona = useCallback(async (persona) => {
+    try {
+      await personaApi.delete(authClient, persona._id);
+    } catch {
+      return; // surface errors inline if needed; never block the list refresh
+    }
+    // Drop it locally so the row vanishes without a full reload.
+    setPersonas((prev) => prev.filter((p) => p._id !== persona._id));
+    // If the deleted persona was the open one, close its chat too.
+    setActivePersona((prev) => (prev?._id === persona._id ? null : prev));
+  }, [authClient]);
+
   useEffect(() => {
     if (!token) return;
     loadConversations();
     loadUsers();
+    loadPersonas();
 
     // Request notification permission
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
-  }, [token, loadConversations, loadUsers]);
+  }, [token, loadConversations, loadUsers, loadPersonas]);
 
   /* ─── Auth handler ─── */
   const handleAuth = async (isRegister, form) => {
@@ -346,6 +398,7 @@ function App() {
   const openConversation = useCallback(
     async (conversation) => {
       setActiveConversation(conversation);
+      setActivePersona(null);
       // Clear unread count for this conversation
       setUnreadCounts((prev) => {
         const next = { ...prev };
@@ -689,7 +742,7 @@ function App() {
 
   /* ─── Mobile back handler ─── */
   const handleBack = useCallback(() => {
-    if (isMobile && window.history.state?.chatScreen) {
+    if (isMobile && (window.history.state?.chatScreen || window.history.state?.personaScreen)) {
       window.history.back();
     } else {
       setShowChat(false);
@@ -709,6 +762,9 @@ function App() {
     setOnlineUserIds([]);
     setTypingUsers({});
     setUnreadCounts({});
+    setActivePersona(null);
+    setPersonas([]);
+    setShowAddPersona(false);
   }, [cleanupCall]);
 
   /* ─── Is the other user typing in the active conversation? ─── */
@@ -756,7 +812,25 @@ function App() {
         }}
       >
         {callOverlay}
-        {showChat && activeConversation ? (
+        {showAddPersona && (
+          <AddPersona
+            authClient={authClient}
+            onCreated={() => loadPersonas()}
+            onClose={() => setShowAddPersona(false)}
+          />
+        )}
+        {showChat && activePersona ? (
+          <div className="flex-1 w-full flex flex-col min-h-0 slide-in-right">
+            <PersonaChat
+              user={user}
+              persona={activePersona}
+              socket={socket}
+              authClient={authClient}
+              onBack={closePersona}
+              isMobile={true}
+            />
+          </div>
+        ) : showChat && activeConversation ? (
           <div className="flex-1 w-full flex flex-col min-h-0 slide-in-right">
             <ChatPanel
               user={user}
@@ -791,6 +865,12 @@ function App() {
               onlineUserIds={onlineUserIds}
               unreadCounts={unreadCounts}
               loading={loadingConversations}
+              /* persona props */
+              personas={personas}
+              activePersona={activePersona}
+              onOpenPersona={openPersona}
+              onAddPersona={() => setShowAddPersona(true)}
+              onDeletePersona={deletePersona}
             />
           </div>
         )}
@@ -805,6 +885,13 @@ function App() {
       style={{ backgroundColor: 'var(--dd-cream)' }}
     >
       {callOverlay}
+      {showAddPersona && (
+        <AddPersona
+          authClient={authClient}
+          onCreated={() => loadPersonas()}
+          onClose={() => setShowAddPersona(false)}
+        />
+      )}
       {/* Sidebar */}
       <aside
         className="flex-shrink-0 h-full overflow-hidden"
@@ -828,28 +915,45 @@ function App() {
           onlineUserIds={onlineUserIds}
           unreadCounts={unreadCounts}
           loading={loadingConversations}
+          /* persona props */
+          personas={personas}
+          activePersona={activePersona}
+          onOpenPersona={openPersona}
+          onAddPersona={() => setShowAddPersona(true)}
+          onDeletePersona={deletePersona}
         />
       </aside>
 
       {/* Chat area */}
       <section className="flex flex-1 flex-col h-full overflow-hidden">
-        <ChatPanel
-          user={user}
-          conversation={activeConversation}
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          onBack={handleBack}
-          isMobile={false}
-          hasMore={hasMore}
-          loadOlderMessages={loadOlderMessages}
-          otherUserOnline={otherUserOnline}
-          otherUserLastSeen={otherUserLastSeen}
-          isOtherTyping={isOtherTyping}
-          onForwardMessage={handleForwardMessage}
-          conversations={conversations}
-          loading={loadingMessages}
-          onCallStart={handleCallStart}
-        />
+        {activePersona ? (
+          <PersonaChat
+            user={user}
+            persona={activePersona}
+            socket={socket}
+            authClient={authClient}
+            onBack={closePersona}
+            isMobile={false}
+          />
+        ) : (
+          <ChatPanel
+            user={user}
+            conversation={activeConversation}
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            onBack={handleBack}
+            isMobile={false}
+            hasMore={hasMore}
+            loadOlderMessages={loadOlderMessages}
+            otherUserOnline={otherUserOnline}
+            otherUserLastSeen={otherUserLastSeen}
+            isOtherTyping={isOtherTyping}
+            onForwardMessage={handleForwardMessage}
+            conversations={conversations}
+            loading={loadingMessages}
+            onCallStart={handleCallStart}
+          />
+        )}
       </section>
     </div>
   );

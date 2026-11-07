@@ -1,6 +1,31 @@
 import { useState, useMemo } from 'react';
 import { ChatListSkeleton } from './SkeletonLoader';
 
+/* ── Persona Avatar (doodle, distinct vibe: ✦ mark) ── */
+function PersonaAvatar({ name, size = 44 }) {
+    const palettes = [
+        { bg: 'var(--dd-lavender-soft)', border: 'var(--dd-lavender)', color: 'var(--dd-primary)' },
+        { bg: 'var(--dd-rose-soft)', border: 'var(--dd-rose)', color: '#b06a7a' },
+        { bg: 'var(--dd-honey-soft)', border: 'var(--dd-honey)', color: '#a08040' },
+        { bg: 'var(--dd-sage-soft)', border: 'var(--dd-sage)', color: '#5a8555' },
+    ];
+    const idx = name ? name.charCodeAt(0) % palettes.length : 0;
+    const p = palettes[idx];
+    const initials = name ? name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase() : '?';
+    return (
+        <div
+            className="rounded-full flex items-center justify-center font-bold flex-shrink-0"
+            style={{
+                width: size, height: size,
+                backgroundColor: p.bg, border: `2px solid ${p.border}`, color: p.color,
+                fontSize: size * 0.34, fontFamily: 'var(--font-hand)',
+            }}
+        >
+            {initials}
+        </div>
+    );
+}
+
 /* ── Doodle Avatar ── */
 function DoodleAvatar({ name, size = 42, showOnline, isOnline: online }) {
     const palettes = [
@@ -61,8 +86,31 @@ export default function Sidebar({
     onlineUserIds = [],
     unreadCounts = {},
     loading = false,
+    personas = [],
+    activePersona = null,
+    onOpenPersona,
+    onAddPersona,
+    onDeletePersona,
 }) {
     const [search, setSearch] = useState('');
+    // Two-step delete: first click arms the confirm for a persona, second clicks delete.
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+    const [deleting, setDeleting] = useState(false);
+
+    const handleDeletePersona = async (e, persona) => {
+        e.stopPropagation(); // don't let the row's onClick open the chat
+        if (confirmDeleteId !== persona._id || deleting || !onDeletePersona) return;
+        setDeleting(true);
+        setConfirmDeleteId(null);
+        await onDeletePersona(persona);
+        setDeleting(false);
+    };
+
+    const filteredPersonas = useMemo(() => {
+        if (!search.trim()) return personas;
+        const q = search.toLowerCase();
+        return personas.filter((p) => p.name?.toLowerCase().includes(q) || p.relationship?.toLowerCase().includes(q));
+    }, [personas, search]);
 
     const filteredConversations = useMemo(() => {
         if (!search.trim()) return conversations;
@@ -174,8 +222,80 @@ export default function Sidebar({
                 </div>
             </div>
 
+            {/* ─── Persona bot section (top of friends list) ─── */}
+            <div className="flex items-center justify-between px-4 py-2 flex-shrink-0"
+                style={{ backgroundColor: 'var(--dd-lavender-soft)', borderBottom: '1px dashed var(--dd-lavender)' }}>
+                <div className="text-[12px] font-bold"
+                    style={{ fontFamily: 'var(--font-hand)', color: 'var(--dd-primary)', fontSize: '15px' }}>
+                    ✦ AI Personas
+                </div>
+                <button
+                    onClick={onAddPersona}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-full cursor-pointer transition-all duration-200 wiggle"
+                    style={{
+                        background: 'var(--dd-primary)', color: '#fff',
+                        border: '2px dashed rgba(255,255,255,0.4)',
+                        fontFamily: 'var(--font-sketch)', fontSize: '12px',
+                        boxShadow: 'var(--dd-shadow-sm)',
+                    }}
+                    title="Add a persona"
+                >
+                    <span style={{ fontSize: '14px', lineHeight: 1 }}>＋</span> Add Persona
+                </button>
+            </div>
+
             {/* ─── Lists ─── */}
             <div className="flex-1 overflow-y-auto px-1 py-1">
+                {/* Persona list */}
+                {filteredPersonas.length > 0 && (
+                    <div className="px-1 py-0.5">
+                        {filteredPersonas.map((p) => {
+                            const isActive = activePersona?._id === p._id;
+                            return (
+                                <div
+                                    key={p._id}
+                                    className={`convo-item flex items-center gap-3 px-3 py-2.5 cursor-pointer ${isActive ? 'active' : ''}`}
+                                    onClick={() => onOpenPersona?.(p)}
+                                >
+                                    <PersonaAvatar name={p.name} size={40} />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[14px] font-semibold truncate"
+                                                style={{ color: isActive ? 'var(--dd-primary)' : 'var(--dd-text)' }}>
+                                                {p.name}
+                                            </span>
+                                            <span className="text-[11px]"
+                                                style={{ color: 'var(--dd-lavender)', fontFamily: 'var(--font-sketch)' }}>
+                                                ✦
+                                            </span>
+                                        </div>
+                                        <div className="text-[12px] truncate mt-0.5" style={{ color: 'var(--dd-text-muted)' }}>
+                                            {p.relationship || 'persona'}
+                                        </div>
+                                    </div>
+
+                                    {/* Two-step inline delete: first click arms, second deletes */}
+                                    <button
+                                        onClick={(e) => {
+                                            if (confirmDeleteId === p._id) handleDeletePersona(e, p);
+                                            else setConfirmDeleteId(p._id);
+                                        }}
+                                        className="flex items-center justify-center w-7 h-7 rounded-full cursor-pointer transition-all duration-150 flex-shrink-0"
+                                        style={{
+                                            color: confirmDeleteId === p._id ? 'var(--dd-coral, #e8736a)' : 'var(--dd-text-muted)',
+                                            border: `1px dashed ${confirmDeleteId === p._id ? 'var(--dd-coral, #e8736a)' : 'var(--dd-border, #2a2a4a)'}`,
+                                        }}
+                                        title={confirmDeleteId === p._id ? 'Tap again to delete' : 'Delete persona'}
+                                        aria-label={confirmDeleteId === p._id ? `Confirm delete ${p.name}` : `Delete ${p.name}`}
+                                    >
+                                        {deleting && confirmDeleteId === null ? '…' : confirmDeleteId === p._id ? 'Sure?' : '🗑'}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
                 {/* Skeleton while loading */}
                 {loading && conversations.length === 0 && <ChatListSkeleton count={5} />}
 

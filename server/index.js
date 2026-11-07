@@ -27,8 +27,30 @@ import {
 } from './services/presence/presenceService.js';
 import { registerRTCHandlers } from './services/rtc/rtcService.js';
 import Conversation from './models/Conversation.js';
+import personaRouter from './persona/routes.js';
+import {
+  registerPersonaHandlers,
+  startPersonaWorkers,
+  subscribeProactiveFanout,
+} from './persona/personaService.js';
 
 dotenv.config();
+
+/* ── Process-level safety nets ─────────────────────────────────────────────
+   Redis (and other external services) are an *optional* accelerator for this
+   chat app. When they misbehave — an Upstash free-tier DB past its request
+   cap, a dropped connection, a missing Qdrant/Gemini key — they throw
+   unhandled promise rejections (e.g. BullMQ's internal `auth`) that would
+   otherwise take the whole Node process down. The core chat app should keep
+   running without them, so log-and-continue instead of crashing. */
+process.on('unhandledRejection', (err) => {
+  // eslint-disable-next-line no-console
+  console.error('[unhandledRejection]', err && err.stack ? err.stack : err);
+});
+process.on('uncaughtException', (err) => {
+  // eslint-disable-next-line no-console
+  console.error('[uncaughtException]', err && err.stack ? err.stack : err);
+});
 
 const app = express();
 const server = http.createServer(app);
@@ -50,6 +72,9 @@ const io = new SocketIOServer(server, {
 try {
   const pubClient = createRedisConnection();
   const subClient = pubClient.duplicate();
+  // duplicate() drops event listeners — guard the sub client too so a dead /
+  // over-quota Redis can't crash the process through an unhandled 'error'.
+  subClient.on('error', () => {});
   io.adapter(createAdapter(pubClient, subClient));
   // eslint-disable-next-line no-console
   console.log('[Socket.IO] Redis adapter attached');
@@ -60,6 +85,20 @@ try {
 
 /* ── Start BullMQ event workers ── */
 startEventWorkers(io);
+
+/* ── Start persona-bot workers (ingestion + proactive) ── */
+// Guarded: a missing persona dependency (Redis/Qdrant/Gemini) must not take
+// down the core chat app.
+try {
+  startPersonaWorkers();
+} catch (err) {
+  // eslint-disable-next-line no-console
+  console.warn('[Persona] workers not started:', err.message);
+}
+subscribeProactiveFanout(io).catch((err) => {
+  // eslint-disable-next-line no-console
+  console.warn('[Persona] proactive fan-out not started:', err.message);
+});
 
 // Middleware
 app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }));
@@ -72,6 +111,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/conversations', conversationRouter);
 app.use('/api/messages', messageRouter(io));
+app.use('/api/persona', personaRouter());
 
 // Health check
 app.get('/health', (req, res) => {
@@ -110,6 +150,9 @@ io.on('connection', (socket) => {
 
   // Register WebRTC signaling handlers
   registerRTCHandlers(io, socket);
+
+  // Register persona-bot handlers (streaming Gemini replies + proactive fan-out)
+  registerPersonaHandlers(io, socket);
 
   // Join all user's conversation rooms + notify others
   Conversation.find({ participants: userId }, '_id participants')
